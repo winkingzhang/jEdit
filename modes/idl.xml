@@ -12,8 +12,13 @@
 		<PROPERTY NAME="commentEnd" VALUE="*/" />
 		<PROPERTY NAME="boxComment" VALUE="*" />
 		<PROPERTY NAME="lineComment" VALUE="//" />
+		<PROPERTY NAME="noWordSep" VALUE="_" />
 	</PROPS>
-	<RULES ESCAPE="\" IGNORE_CASE="FALSE">
+	<RULES ESCAPE="\">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<!-- C style comment -->
 		<SPAN TYPE="COMMENT1">
 			<BEGIN>/*</BEGIN>
@@ -29,10 +34,10 @@
 			<END>'</END>
 		</SPAN>
 
-		<EOL_SPAN TYPE="COMMENT2">//</EOL_SPAN>
+		<EOL_SPAN TYPE="COMMENT1">//</EOL_SPAN>
 
 		<!-- some of these should be marked OPERATOR -->
-		<!-- <SEQ TYPE="NULL">)</SEQ>
+		<SEQ TYPE="NULL">)</SEQ>
 		<SEQ TYPE="NULL">=</SEQ>
 		<SEQ TYPE="NULL">!</SEQ>
 		<SEQ TYPE="NULL">&gt;=</SEQ>
@@ -48,21 +53,20 @@
 		<SEQ TYPE="NULL">|</SEQ>
 		<SEQ TYPE="NULL">^</SEQ>
 		<SEQ TYPE="NULL">~</SEQ>
+		<SEQ TYPE="OPERATOR">}</SEQ>
+		<SEQ TYPE="OPERATOR">{</SEQ>
 		<SEQ TYPE="NULL">.</SEQ>
 		<SEQ TYPE="NULL">,</SEQ>
 		<SEQ TYPE="NULL">;</SEQ>
 		<SEQ TYPE="NULL">]</SEQ>
 		<SEQ TYPE="NULL">[</SEQ>
-		<SEQ TYPE="NULL">?</SEQ> -->
-
-		<SEQ TYPE="OPERATOR">}</SEQ>
-		<SEQ TYPE="OPERATOR">{</SEQ>
+		<SEQ TYPE="NULL">?</SEQ>
 		<SEQ TYPE="OPERATOR">:</SEQ>
 
 		<!-- Function calls -->
 		<MARK_PREVIOUS TYPE="FUNCTION" EXCLUDE_MATCH="TRUE">(</MARK_PREVIOUS>
 
-		<KEYWORDS>
+		<KEYWORDS IGNORE_CASE="FALSE">
 			<KEYWORD3>any</KEYWORD3>
 			<KEYWORD1>attribute</KEYWORD1>
 			<KEYWORD3>boolean</KEYWORD3>

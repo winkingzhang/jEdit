@@ -21,14 +21,66 @@
  * $Id$
  */
 
-import org.gjt.sp.jedit.EditPlugin;
+import java.util.Vector;
+import java.awt.*;
+import java.awt.event.*;
+import org.gjt.sp.jedit.*;
+import org.gjt.sp.util.Log;
+import org.gjt.sp.jedit.gui.*;
+import org.gjt.sp.jedit.msg.CreateDockableWindow;
+
 
 /**
  * The QuickNotepad plugin
- * 
+ *
  * @author John Gellene
  */
-public class QuickNotepadPlugin extends EditPlugin {
-	public static final String NAME = "quicknotepad";
-	public static final String OPTION_PREFIX = "options.quicknotepad.";
+public class QuickNotepadPlugin extends EBPlugin
+{
+    public static final String NAME = "quicknotepad";
+	public static final String MENU = "quicknotepad.menu";
+    public static final String PROPERTY_PREFIX = "plugin.QuickNotepadPlugin.";
+    public static final String OPTION_PREFIX = "options.quicknotepad.";
+
+    public void start()
+	{
+        EditBus.addToNamedList(DockableWindow.DOCKABLE_WINDOW_LIST, NAME);
+    }
+
+
+	public void stop()
+	{
+	}
+
+
+    public void createMenuItems(Vector menuItems)
+	{
+        menuItems.addElement(GUIUtilities.loadMenu(MENU));
+    }
+
+
+    public void createOptionPanes(OptionsDialog od)
+	{
+        od.addOptionPane(new QuickNotepadOptionPane());
+    }
+
+
+    public void handleMessage(EBMessage message)
+	{
+        if(message instanceof CreateDockableWindow)
+		{
+            CreateDockableWindow cmsg = (CreateDockableWindow)message;
+            if (cmsg.getDockableWindowName().equals(NAME))
+			{
+//				try {
+//					Runtime.getRuntime().exec("start cmd /C");
+//				} catch (java.io.IOException e) {}
+				DockableWindow win = new QuickNotepadDockable(
+					cmsg.getView(), cmsg.getPosition());
+				cmsg.setDockableWindow(win);
+            }
+        }
+    }
+
 }
+

@@ -30,7 +30,7 @@ import org.gjt.sp.jedit.EBMessage;
  *
  * @since jEdit 2.2pre6
  */
-public class PropertiesChanged extends EBMessage
+public class PropertiesChanged extends EBMessage.NonVetoable
 {
 	/**
 	 * Creates a new properties changed message.

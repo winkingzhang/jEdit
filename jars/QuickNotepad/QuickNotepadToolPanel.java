@@ -21,80 +21,85 @@
  * $Id$
  */
 
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.*;
+import java.awt.event.*;
 
-import javax.swing.AbstractButton;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
+import javax.swing.*;
 
-import org.gjt.sp.jedit.GUIUtilities;
-import org.gjt.sp.jedit.jEdit;
-import org.gjt.sp.jedit.gui.RolloverButton;
+import org.gjt.sp.jedit.*;
+import org.gjt.sp.jedit.gui.*;
+import org.gjt.sp.jedit.io.*;
+import org.gjt.sp.jedit.textarea.*;
+import org.gjt.sp.jedit.msg.PropertiesChanged;
+import org.gjt.sp.util.Log;
 
-public class QuickNotepadToolPanel extends JPanel {
+public class QuickNotepadToolPanel extends JPanel
+{
 	private QuickNotepad pad;
-
 	private JLabel label;
 
-	public QuickNotepadToolPanel(QuickNotepad qnpad) {
-		setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+    public QuickNotepadToolPanel(QuickNotepad qnpad)
+	{
 		pad = qnpad;
+        JToolBar toolBar = new JToolBar();
+        toolBar.setFloatable(false);
 
-		Box labelBox = new Box(BoxLayout.Y_AXIS);
-		labelBox.add(Box.createGlue());
-
-		label = new JLabel(pad.getFilename());
+        toolBar.add(makeCustomButton("quicknotepad.choose-file",
+			new ActionListener() {
+				public void actionPerformed(ActionEvent evt) {
+					QuickNotepadToolPanel.this.pad.chooseFile();
+				}
+			}));
+        toolBar.add(makeCustomButton("quicknotepad.save-file",
+			new ActionListener() {
+				public void actionPerformed(ActionEvent evt) {
+					QuickNotepadToolPanel.this.pad.saveFile();
+				}
+			}));
+        toolBar.add(makeCustomButton("quicknotepad.copy-to-buffer",
+			new ActionListener() {
+				public void actionPerformed(ActionEvent evt) {
+					QuickNotepadToolPanel.this.pad.copyToBuffer();
+				}
+			}));
+		label = new JLabel(pad.getFilename(), SwingConstants.RIGHT);
+		label.setForeground(Color.black);
 		label.setVisible(jEdit.getProperty(
-				QuickNotepadPlugin.OPTION_PREFIX + "show-filepath").equals(
-				"true"));
+			QuickNotepadPlugin.OPTION_PREFIX + "show-filepath").equals("true"));
+        this.setLayout(new BorderLayout(10, 0));
+        this.add(BorderLayout.WEST, toolBar);
+		this.add(BorderLayout.CENTER, label);
+        this.setBorder(BorderFactory.createEmptyBorder(0, 0, 3, 10));
+    }
 
-		labelBox.add(label);
-		labelBox.add(Box.createGlue());
 
-		add(labelBox);
-
-		add(Box.createGlue());
-
-		add(makeCustomButton("quicknotepad.choose-file", new ActionListener() {
-			public void actionPerformed(ActionEvent evt) {
-				QuickNotepadToolPanel.this.pad.chooseFile();
-			}
-		}));
-		add(makeCustomButton("quicknotepad.save-file", new ActionListener() {
-			public void actionPerformed(ActionEvent evt) {
-				QuickNotepadToolPanel.this.pad.saveFile();
-			}
-		}));
-		add(makeCustomButton("quicknotepad.copy-to-buffer",
-				new ActionListener() {
-					public void actionPerformed(ActionEvent evt) {
-						QuickNotepadToolPanel.this.pad.copyToBuffer();
-					}
-				}));
-	}
-
-	void propertiesChanged() {
+	void propertiesChanged()
+	{
 		label.setText(pad.getFilename());
 		label.setVisible(jEdit.getProperty(
-				QuickNotepadPlugin.OPTION_PREFIX + "show-filepath").equals(
-				"true"));
+			QuickNotepadPlugin.OPTION_PREFIX + "show-filepath").equals("true"));
 	}
 
-	private AbstractButton makeCustomButton(String name, ActionListener listener) {
-		String toolTip = jEdit.getProperty(name.concat(".label"));
-		AbstractButton b = new RolloverButton(GUIUtilities.loadIcon(jEdit
-				.getProperty(name + ".icon")));
-		if (listener != null) {
+    private AbstractButton makeCustomButton(String name, ActionListener listener)
+	{
+        String icon = jEdit.getProperty(name + ".icon");
+        java.net.URL u = getClass().getResource(icon);
+        String toolTip = jEdit.getProperty(name.concat(".label"));
+        AbstractButton b = new JButton(new ImageIcon(u));
+		if(listener != null)
+		{
 			b.addActionListener(listener);
 			b.setEnabled(true);
-		} else {
+		}
+		else
+		{
 			b.setEnabled(false);
 		}
-		b.setToolTipText(toolTip);
-		return b;
-	}
+        b.setToolTipText(toolTip);
+        b.setMargin(new Insets(0,0,0,0));
+		b.setAlignmentY(0.0f);
+        b.setRequestFocusEnabled(false);
+        return b;
+    }
 
 }

@@ -21,10 +21,10 @@
  * $Id$
  */
 
-interface QuickNotepadActions {
+interface QuickNotepadActions
+{
 	void chooseFile();
-
 	void saveFile();
-
 	void copyToBuffer();
 }
+

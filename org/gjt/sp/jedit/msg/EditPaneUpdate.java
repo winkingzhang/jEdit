@@ -19,6 +19,7 @@
 
 package org.gjt.sp.jedit.msg;
 
+import org.gjt.sp.jedit.textarea.JEditTextArea;
 import org.gjt.sp.jedit.*;
 
 /**
@@ -28,7 +29,7 @@ import org.gjt.sp.jedit.*;
  *
  * @since jEdit 2.5pre1
  */
-public class EditPaneUpdate extends EBMessage
+public class EditPaneUpdate extends EBMessage.NonVetoable
 {
 	/**
 	 * Edit pane created.
@@ -46,13 +47,6 @@ public class EditPaneUpdate extends EBMessage
 	public static final Object BUFFER_CHANGED = "BUFFER_CHANGED";
 
 	/**
-	 * Edit pane buffer about to change. Note: this could be an instance of BufferChanging class,
-	 * which also contains information about the new buffer that is about to be opened.
-	 * @since 4.3pre3
-	 */
-	public static final Object BUFFER_CHANGING = "BUFFER_CHANGING";
-	
-	/**
 	 * Creates a new edit pane update message.
 	 * @param editPane The edit pane
 	 * @param what What happened
@@ -60,6 +54,7 @@ public class EditPaneUpdate extends EBMessage
 	public EditPaneUpdate(EditPane editPane, Object what)
 	{
 		super(editPane);
+
 		if(what == null)
 			throw new NullPointerException("What must be non-null");
 
@@ -84,10 +79,9 @@ public class EditPaneUpdate extends EBMessage
 
 	public String paramString()
 	{
-		return "what=" + what + "," + super.paramString();
+		return super.paramString() + ",what=" + what;
 	}
-	
+
 	// private members
 	private Object what;
-
 }

@@ -1,8 +1,5 @@
 /*
  * EditAbbrevDialog.java - Displayed when editing abbrevs
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 2001 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
@@ -22,75 +19,28 @@
 
 package org.gjt.sp.jedit.gui;
 
-//{{{ Imports
 import javax.swing.border.*;
 import javax.swing.*;
 import java.awt.event.*;
 import java.awt.*;
-import java.util.*;
 import org.gjt.sp.jedit.*;
-//}}}
 
 public class EditAbbrevDialog extends JDialog
 {
-	//{{{ EditAbbrevDialog constructor
-	/**
-	 * @since jEdit 4.2pre3
-	 */
-	public EditAbbrevDialog(Frame frame, String abbrev, String expansion,
-		Map abbrevs)
+	public EditAbbrevDialog(Component comp, String abbrev, String expansion)
 	{
-		super(frame,jEdit.getProperty("edit-abbrev.title"),true);
-		init(abbrev, expansion, abbrevs);
-	} //}}}
+		super(JOptionPane.getFrameForComponent(comp),
+			jEdit.getProperty("edit-abbrev.title"),true);
 
-	//{{{ EditAbbrevDialog constructor
-	public EditAbbrevDialog(Dialog dialog, String abbrev, String expansion,
-		Map abbrevs)
-	{
-		super(dialog,jEdit.getProperty("edit-abbrev.title"),true);
-		init(abbrev, expansion, abbrevs);
-	} //}}}
-
-	//{{{ getAbbrev() method
-	public String getAbbrev()
-	{
-		if(!isOK)
-			return null;
-
-		return editor.getAbbrev();
-	} //}}}
-
-	//{{{ getExpansion() method
-	public String getExpansion()
-	{
-		if(!isOK)
-			return null;
-
-		return editor.getExpansion();
-	} //}}}
-
-	//{{{ Private members
-	private AbbrevEditor editor;
-	private JButton ok;
-	private JButton cancel;
-	private boolean isOK;
-	private String originalAbbrev;
-	private Map abbrevs;
-
-	//{{{ init() method
-	private void init(String abbrev, String expansion, Map abbrevs)
-	{
-		this.abbrevs = abbrevs;
-
-		this.originalAbbrev = abbrev;
+		this.comp = comp;
 
 		JPanel content = new JPanel(new BorderLayout());
 		content.setBorder(new EmptyBorder(12,12,12,12));
 		setContentPane(content);
 
+		content.add(BorderLayout.NORTH,new JLabel(jEdit.getProperty(
+			"edit-abbrev.caption", new String[] { abbrev })));
 		editor = new AbbrevEditor();
-		editor.setAbbrev(abbrev);
 		editor.setExpansion(expansion);
 		editor.setBorder(new EmptyBorder(0,0,12,0));
 		content.add(BorderLayout.CENTER,editor);
@@ -114,57 +64,38 @@ public class EditAbbrevDialog extends JDialog
 		editor.getAfterCaretTextArea().addKeyListener(listener);
 
 		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+		GUIUtilities.requestFocus(this,editor.getBeforeCaretTextArea());
 		pack();
-		setLocationRelativeTo(getParent());
-		setVisible(true);
-	} //}}}
+		setLocationRelativeTo(comp);
+		show();
+	}
 
-	//{{{ checkForExistingAbbrev() method
-	private boolean checkForExistingAbbrev()
+	public String getExpansion()
 	{
-		String abbrev = editor.getAbbrev();
-		if(abbrevs.get(abbrev) != null)
-		{
-			if(abbrev.equals(originalAbbrev))
-				return true;
+		if(!isOK)
+			return null;
 
-			int result = GUIUtilities.confirm(this,
-				"edit-abbrev.duplicate",null,
-				JOptionPane.YES_NO_OPTION,
-				JOptionPane.WARNING_MESSAGE);
-			return (result == JOptionPane.YES_OPTION);
-		}
+		return editor.getExpansion();
+	}
 
-		return true;
-	} //}}}
+	// private members
+	private Component comp;
+	private AbbrevEditor editor;
+	private JButton ok;
+	private JButton cancel;
+	private boolean isOK;
 
-	//}}}
-
-	//{{{ ActionHandler class
 	class ActionHandler implements ActionListener
 	{
 		public void actionPerformed(ActionEvent evt)
 		{
 			if(evt.getSource() == ok)
-			{
-				if(editor.getAbbrev() == null
-					|| editor.getAbbrev().length() == 0)
-				{
-					getToolkit().beep();
-					return;
-				}
-
-				if(!checkForExistingAbbrev())
-					return;
-
 				isOK = true;
-			}
 
 			dispose();
 		}
-	} //}}}
+	}
 
-	//{{{ KeyHandler class
 	class KeyHandler extends KeyAdapter
 	{
 		public void keyPressed(KeyEvent evt)
@@ -172,5 +103,5 @@ public class EditAbbrevDialog extends JDialog
 			if(evt.getKeyCode() == KeyEvent.VK_ESCAPE)
 				dispose();
 		}
-	} //}}}
+	}
 }

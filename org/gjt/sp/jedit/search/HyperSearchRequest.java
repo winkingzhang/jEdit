@@ -1,9 +1,6 @@
 /*
  * HyperSearchRequest.java - HyperSearch request, run in I/O thread
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1998, 1999, 2000, 2001, 2002 Slava Pestov
+ * Copyright (C) 1998, 1999, 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,248 +19,138 @@
 
 package org.gjt.sp.jedit.search;
 
-//{{{ Imports
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Element;
 import javax.swing.text.Segment;
 import javax.swing.tree.*;
 import javax.swing.SwingUtilities;
-import org.gjt.sp.jedit.textarea.Selection;
 import org.gjt.sp.jedit.io.VFSManager;
 import org.gjt.sp.jedit.Buffer;
 import org.gjt.sp.jedit.GUIUtilities;
 import org.gjt.sp.jedit.jEdit;
 import org.gjt.sp.jedit.View;
 import org.gjt.sp.util.*;
-//}}}
 
-class HyperSearchRequest extends WorkRequest
+public class HyperSearchRequest extends WorkRequest
 {
-	//{{{ HyperSearchRequest constructor
 	public HyperSearchRequest(View view, SearchMatcher matcher,
-		HyperSearchResults results, Selection[] selection)
+		HyperSearchResults results)
 	{
 		this.view = view;
 		this.matcher = matcher;
 
 		this.results = results;
-		this.searchString = SearchAndReplace.getSearchString();
-		this.rootSearchNode = new DefaultMutableTreeNode(new HyperSearchOperationNode(searchString));
+		this.resultTreeModel = results.getTreeModel();
+		this.resultTreeRoot = (DefaultMutableTreeNode)resultTreeModel
+			.getRoot();
+	}
 
-		this.selection = selection;
-	} //}}}
-
-	//{{{ run() method
 	public void run()
 	{
-		setStatus(jEdit.getProperty("hypersearch-status"));
-
 		SearchFileSet fileset = SearchAndReplace.getSearchFileSet();
-		String[] files = fileset.getFiles(view);
-		if(files == null || files.length == 0)
-		{
-			SwingUtilities.invokeLater(new Runnable()
-			{
-				public void run()
-				{
-					GUIUtilities.error(view,"empty-fileset",null);
-					results.searchDone(rootSearchNode);
-				}
-			});
-			return;
-		}
+		setProgressMaximum(fileset.getBufferCount());
+		setStatus(jEdit.getProperty("hypersearch.status"));
 
-		setMaximum(fileset.getFileCount(view));
+		int resultCount = 0;
+		int bufferCount = 0;
 
-		// to minimise synchronization and stuff like that, we only
-		// show a status message at most twice a second
-
-		// initially zero, so that we always show the first message
-		long lastStatusTime = 0;
-		String searchingCaption = jEdit.getProperty("hypersearch-results.searching") + ' ';
 		try
 		{
-			if(selection != null)
-			{
-				Buffer buffer = view.getBuffer();
+			int current = 0;
 
-				searchInSelection(buffer);
-			}
-			else
-			{
-				int current = 0;
+			Buffer buffer = fileset.getFirstBuffer(view);
 
-loop:				for(int i = 0; i < files.length; i++)
+			if(buffer != null)
+			{
+				do
 				{
-					String file = files[i];
-					current++;
-
-					long currentTime = System.currentTimeMillis();
-					if(currentTime - lastStatusTime > 250)
+					setProgressValue(++current);
+					int thisResultCount = doHyperSearch(buffer,matcher);
+					if(thisResultCount != 0)
 					{
-						setValue(current);
-						lastStatusTime = currentTime;
-						results.setSearchStatus(searchingCaption + file);
+						bufferCount++;
+						resultCount += thisResultCount;
 					}
-
-					Buffer buffer = jEdit.openTemporary(null,null,file,false);
-					if(buffer == null)
-						continue loop;
-
-					doHyperSearch(buffer);
 				}
+				while((buffer = fileset.getNextBuffer(view,buffer)) != null);
 			}
 		}
-		catch(final Exception e)
+		catch(Exception e)
 		{
 			Log.log(Log.ERROR,this,e);
-			SwingUtilities.invokeLater(new Runnable()
-			{
-				public void run()
-				{
-					SearchAndReplace.handleError(view,e);
-				}
-			});
+			Object[] args = { e.getMessage() };
+			if(args[0] == null)
+				args[0] = e.toString();
+			VFSManager.error(view,"searcherror",args);
 		}
 		catch(WorkThread.Abort a)
 		{
 		}
 		finally
 		{
+			final int _resultCount = resultCount;
+			final int _bufferCount = bufferCount;
 			VFSManager.runInAWTThread(new Runnable()
 			{
 				public void run()
 				{
-					results.searchDone(rootSearchNode);
+					results.searchDone(_resultCount,_bufferCount);
 				}
 			});
 		}
-	} //}}}
+	}
 
-	//{{{ Private members
-
-	//{{{ Instance variables
+	// private members
 	private View view;
 	private SearchMatcher matcher;
 	private HyperSearchResults results;
-	private DefaultMutableTreeNode rootSearchNode;
-	private Selection[] selection;
-	private String searchString;
-	//}}}
+	private DefaultTreeModel resultTreeModel;
+	private DefaultMutableTreeNode resultTreeRoot;
 
-	//{{{ searchInSelection() method
-	private int searchInSelection(Buffer buffer) throws Exception
+	private int doHyperSearch(Buffer buffer, SearchMatcher matcher)
+		throws Exception
 	{
 		setAbortable(false);
 
 		int resultCount = 0;
-
-		try
-		{
-			buffer.readLock();
-
-			for(int i = 0; i < selection.length; i++)
-			{
-				Selection s = selection[i];
-				if(s instanceof Selection.Rect)
-				{
-					for(int j = s.getStartLine();
-						j <= s.getEndLine(); j++)
-					{
-						resultCount += doHyperSearch(buffer,
-							s.getStart(buffer,j),
-							s.getEnd(buffer,j));
-					}
-				}
-				else
-				{
-					resultCount += doHyperSearch(buffer,
-						s.getStart(),s.getEnd());
-				}
-			}
-		}
-		finally
-		{
-			buffer.readUnlock();
-		}
-
-		setAbortable(true);
-
-		return resultCount;
-	} //}}}
-
-	//{{{ doHyperSearch() method
-	private int doHyperSearch(Buffer buffer)
-		throws Exception
-	{
-		return doHyperSearch(buffer, 0, buffer.getLength());
-	} //}}}
-
-	//{{{ doHyperSearch() method
-	private int doHyperSearch(Buffer buffer, int start, int end)
-		throws Exception
-	{
-		setAbortable(false);
 
 		final DefaultMutableTreeNode bufferNode = new DefaultMutableTreeNode(
-			new HyperSearchFileNode(buffer.getPath()));
-
-		int resultCount = doHyperSearch(buffer,start,end,bufferNode);
-
-		if(resultCount != 0)
-			rootSearchNode.insert(bufferNode,rootSearchNode.getChildCount());
-
-		setAbortable(true);
-
-		return resultCount;
-	} //}}}
-
-	//{{{ doHyperSearch() method
-	private int doHyperSearch(Buffer buffer, int start, int end,
-		DefaultMutableTreeNode bufferNode)
-	{
-		int resultCount = 0;
+			buffer.getPath());
 
 		try
 		{
 			buffer.readLock();
 
-			boolean endOfLine = (buffer.getLineEndOffset(
-				buffer.getLineOfOffset(end)) - 1 == end);
-
+			Element map = buffer.getDefaultRootElement();
 			Segment text = new Segment();
-			int offset = start;
+			int offset = 0;
+			int length = buffer.getLength();
+			int line = -1;
 
-			HyperSearchResult lastResult = null;
-
-loop:			for(int counter = 0; ; counter++)
+loop:			for(;;)
 			{
-				boolean startOfLine = (buffer.getLineStartOffset(
-					buffer.getLineOfOffset(offset)) == offset);
-
-				buffer.getText(offset,end - offset,text);
-				SearchMatcher.Match match = matcher.nextMatch(
-					new SegmentCharSequence(text,false),
-					startOfLine,endOfLine,counter == 0,
-					false);
+				buffer.getText(offset,length - offset,text);
+				int[] match = matcher.nextMatch(text);
 				if(match == null)
 					break loop;
 
-				int newLine = buffer.getLineOfOffset(
-					offset + match.start);
-				if(lastResult == null || lastResult.line != newLine)
+				offset += match[1];
+
+				int newLine = map.getElementIndex(offset);
+				if(line == newLine)
 				{
-					lastResult = new HyperSearchResult(
-						buffer,newLine);
-					bufferNode.add(
-						new DefaultMutableTreeNode(
-						lastResult,false));
+					// already had a result on this
+					// line, skip
+					continue loop;
 				}
 
-				lastResult.addOccur(offset + match.start,
-					offset + match.end);
-
-				offset += match.end;
+				line = newLine;
 
 				resultCount++;
+
+				bufferNode.insert(new DefaultMutableTreeNode(
+					new HyperSearchResult(buffer,line),false),
+					bufferNode.getChildCount());
 			}
 		}
 		finally
@@ -271,8 +158,21 @@ loop:			for(int counter = 0; ; counter++)
 			buffer.readUnlock();
 		}
 
-		return resultCount;
-	} //}}}
+		if(resultCount != 0)
+		{
+			resultTreeRoot.insert(bufferNode,resultTreeRoot.getChildCount());
 
-	//}}}
+			SwingUtilities.invokeLater(new Runnable()
+			{
+				public void run()
+				{
+					resultTreeModel.reload(resultTreeRoot);
+				}
+			});
+		}
+
+		setAbortable(true);
+
+		return resultCount;
+	}
 }

@@ -1,9 +1,6 @@
 /*
  * HistoryModel.java - History list model
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1999, 2005 Slava Pestov
+ * Copyright (C) 1999 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,27 +19,21 @@
 
 package org.gjt.sp.jedit.gui;
 
-//{{{ Imports
-import javax.swing.DefaultListModel;
+import javax.swing.*;
 import java.io.*;
 import java.util.*;
 import org.gjt.sp.jedit.jEdit;
 import org.gjt.sp.jedit.MiscUtilities;
 import org.gjt.sp.util.Log;
-//}}}
 
 /**
  * A history list. One history list can be used by several history text
- * fields. Note that the list model implementation is incomplete; no events
- * are fired when the history model changes.
- *
+ * fields.
  * @author Slava Pestov
  * @version $Id$
  */
-public class HistoryModel extends DefaultListModel
-	implements MutableListModel
+public class HistoryModel
 {
-	//{{{ HistoryModel constructor
 	/**
 	 * Creates a new history list. Calling this is normally not
 	 * necessary.
@@ -50,9 +41,19 @@ public class HistoryModel extends DefaultListModel
 	public HistoryModel(String name)
 	{
 		this.name = name;
-	} //}}}
 
-	//{{{ addItem() method
+		try
+		{
+			max = Integer.parseInt(jEdit.getProperty("history"));
+		}
+		catch(NumberFormatException nf)
+		{
+			max = 25;
+		}
+
+		data = new Vector(max);
+	}
+
 	/**
 	 * Adds an item to the end of this history list, trimming the list
 	 * to the maximum number of items if necessary.
@@ -63,57 +64,33 @@ public class HistoryModel extends DefaultListModel
 		if(text == null || text.length() == 0)
 			return;
 
-		int index = indexOf(text);
+		int index = data.indexOf(text);
 		if(index != -1)
-			removeElementAt(index);
+			data.removeElementAt(index);
 
-		insertElementAt(text,0);
+		data.insertElementAt(text,0);
 
-		while(getSize() > max)
-			removeElementAt(getSize() - 1);
-	} //}}}
+		if(getSize() > max)
+			data.removeElementAt(getSize() - 1);
+	}
 
-	//{{{ insertElementAt() method
-	public void insertElementAt(Object obj, int index)
-	{
-		modified = true;
-		super.insertElementAt(obj,index);
-	} //}}}
-
-	//{{{ getItem() method
 	/**
 	 * Returns an item from the history list.
 	 * @param index The index
 	 */
 	public String getItem(int index)
 	{
-		return (String)elementAt(index);
-	} //}}}
+		return (String)data.elementAt(index);
+	}
 
-	//{{{ removeElement() method
-	public boolean removeElement(Object obj)
-	{
-		modified = true;
-		return super.removeElement(obj);
-	} //}}}
-
-	//{{{ clear() method
 	/**
-	 * @deprecated Call <code>removeAllElements()</code> instead.
+	 * Returns the number of elements in this history list.
 	 */
-	public void clear()
+	public int getSize()
 	{
-		removeAllElements();
-	} //}}}
+		return data.size();
+	}
 
-	//{{{ removeAllElements() method
-	public void removeAllElements()
-	{
-		modified = true;
-		super.removeAllElements();
-	} //}}}
-
-	//{{{ getName() method
 	/**
 	 * Returns the name of this history list. This can be passed
 	 * to the HistoryTextField constructor.
@@ -121,9 +98,8 @@ public class HistoryModel extends DefaultListModel
 	public String getName()
 	{
 		return name;
-	} //}}}
+	}
 
-	//{{{ getModel() method
 	/**
 	 * Returns a named model. If the specified model does not
 	 * already exist, it will be created.
@@ -142,32 +118,21 @@ public class HistoryModel extends DefaultListModel
 		}
 
 		return model;
-	} //}}}
+	}
 
-	//{{{ loadHistory() method
-	public static void loadHistory()
+	/**
+	 * Loads the history from the specified file. jEdit calls this
+	 * on startup.
+	 * @param The file
+	 */
+	public static void loadHistory(File file)
 	{
-		String settingsDirectory = jEdit.getSettingsDirectory();
-		if(settingsDirectory == null)
-			return;
-
-		history = new File(MiscUtilities.constructPath(
-			settingsDirectory,"history"));
-		if(!history.exists())
-			return;
-
-		historyModTime = history.lastModified();
-
-		Log.log(Log.MESSAGE,HistoryModel.class,"Loading history");
-
 		if(models == null)
 			models = new Hashtable();
 
-		BufferedReader in = null;
-
 		try
 		{
-			in = new BufferedReader(new FileReader(history));
+			BufferedReader in = new BufferedReader(new FileReader(file));
 
 			HistoryModel currentModel = null;
 			String line;
@@ -181,12 +146,8 @@ public class HistoryModel extends DefaultListModel
 						models.put(currentModel.getName(),
 							currentModel);
 					}
-
-					String modelName = MiscUtilities
-						.escapesToChars(line.substring(
-						1,line.length() - 1));
-					currentModel = new HistoryModel(
-						modelName);
+					currentModel = new HistoryModel(line
+						.substring(1,line.length() - 1));
 				}
 				else if(currentModel == null)
 				{
@@ -195,7 +156,7 @@ public class HistoryModel extends DefaultListModel
 				}
 				else
 				{
-					currentModel.addElement(MiscUtilities
+					currentModel.addItemToEnd(MiscUtilities
 						.escapesToChars(line));
 				}
 			}
@@ -204,124 +165,111 @@ public class HistoryModel extends DefaultListModel
 			{
 				models.put(currentModel.getName(),currentModel);
 			}
+
+			in.close();
 		}
 		catch(FileNotFoundException fnf)
 		{
-			//Log.log(Log.DEBUG,HistoryModel.class,fnf);
+			Log.log(Log.DEBUG,HistoryModel.class,fnf);
 		}
 		catch(IOException io)
 		{
 			Log.log(Log.ERROR,HistoryModel.class,io);
 		}
-		finally
-		{
-			try
-			{
-				if(in != null)
-					in.close();
-			}
-			catch(IOException io)
-			{
-			}
-		}
-	} //}}}
+	}
 
-	//{{{ saveHistory() method
-	public static void saveHistory()
+	/**
+	 * Saves the history to the specified file. jEdit calls this when
+	 * it is exiting.
+	 * @param file The file
+	 */
+	public static void saveHistory(File file)
 	{
-		if(!modified)
-			return;
-
-		Log.log(Log.MESSAGE,HistoryModel.class,"Saving history");
-		File file1 = new File(MiscUtilities.constructPath(
-			jEdit.getSettingsDirectory(), "#history#save#"));
-		File file2 = new File(MiscUtilities.constructPath(
-			jEdit.getSettingsDirectory(), "history"));
-		if(file2.exists() && file2.lastModified() != historyModTime)
-		{
-			Log.log(Log.WARNING,HistoryModel.class,file2
-				+ " changed on disk; will not save history");
-			return;
-		}
-
-		jEdit.backupSettingsFile(file2);
-
 		String lineSep = System.getProperty("line.separator");
-
-		BufferedWriter out = null;
-
 		try
 		{
-			out = new BufferedWriter(new FileWriter(file1));
+			BufferedWriter out = new BufferedWriter(
+				new FileWriter(file));
 
-			if(models != null)
+			if(models == null)
 			{
-				Enumeration modelEnum = models.elements();
-				while(modelEnum.hasMoreElements())
+				out.close();
+				return;
+			}
+
+			Enumeration modelEnum = models.elements();
+			while(modelEnum.hasMoreElements())
+			{
+				HistoryModel model = (HistoryModel)modelEnum
+					.nextElement();
+
+				out.write('[');
+				out.write(model.getName());
+				out.write(']');
+				out.write(lineSep);
+
+				for(int i = 0; i < model.getSize(); i++)
 				{
-					HistoryModel model = (HistoryModel)modelEnum
-						.nextElement();
-					if(model.getSize() == 0)
-						continue;
-	
-					out.write('[');
 					out.write(MiscUtilities.charsToEscapes(
-						model.getName(),TO_ESCAPE));
-					out.write(']');
+						model.getItem(i),true));
 					out.write(lineSep);
-	
-					for(int i = 0; i < model.getSize(); i++)
-					{
-						out.write(MiscUtilities.charsToEscapes(
-							model.getItem(i),
-							TO_ESCAPE));
-						out.write(lineSep);
-					}
 				}
 			}
 
 			out.close();
-
-			/* to avoid data loss, only do this if the above
-			 * completed successfully */
-			file2.delete();
-			file1.renameTo(file2);
-			modified = false;
 		}
 		catch(IOException io)
 		{
 			Log.log(Log.ERROR,HistoryModel.class,io);
 		}
-		finally
-		{
-			try
-			{
-				if(out != null)
-					out.close();
-			}
-			catch(IOException e)
-			{
-			}
-		}
+	}
 
-		historyModTime = file2.lastModified();
-	} //}}}
-
-	//{{{ propertiesChanged() method
-	public static void propertiesChanged()
-	{
-		max = jEdit.getIntegerProperty("history",25);
-	} //}}}
-
-	//{{{ Private members
-	private static final String TO_ESCAPE = "\r\n\t\\\"'[]";
-	private static int max;
-
+	// private members
 	private String name;
+	private int max;
+	private Vector data;
 	private static Hashtable models;
 
-	private static boolean modified;
-	private static File history;
-	private static long historyModTime;
-	//}}}
+	private void addItemToEnd(String item)
+	{
+		data.addElement(item);
+	}
 }
+
+/*
+ * ChangeLog:
+ * $Log$
+ * Revision 1.1  2001/09/02 05:37:41  spestov
+ * Initial revision
+ *
+ * Revision 1.13  2000/11/16 10:25:17  sp
+ * More macro work
+ *
+ * Revision 1.12  2000/07/19 08:35:59  sp
+ * plugin devel docs updated, minor other changes
+ *
+ * Revision 1.11  1999/12/21 06:50:51  sp
+ * Documentation updates, abbrevs option pane finished, bug fixes
+ *
+ * Revision 1.10  1999/12/19 11:14:29  sp
+ * Static abbrev expansion started
+ *
+ * Revision 1.9  1999/11/21 07:59:30  sp
+ * JavaDoc updates
+ *
+ * Revision 1.8  1999/10/31 07:15:34  sp
+ * New logging API, splash screen updates, bug fixes
+ *
+ * Revision 1.7  1999/10/26 07:43:59  sp
+ * Session loading and saving, directory list search started
+ *
+ * Revision 1.6  1999/05/12 05:23:41  sp
+ * Fixed compile % -vs- $ bug, also HistoryModel \ bug
+ *
+ * Revision 1.5  1999/05/09 03:50:17  sp
+ * HistoryTextField is now a text field again
+ *
+ * Revision 1.4  1999/05/08 00:13:00  sp
+ * Splash screen change, minor documentation update, toolbar API fix
+ *
+ */

@@ -1,8 +1,5 @@
 /*
- * UrlVFS.java - URL VFS
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
+ * UrlVFS.java - Url VFS
  * Copyright (C) 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
@@ -22,12 +19,11 @@
 
 package org.gjt.sp.jedit.io;
 
-//{{{ Imports
 import java.awt.Component;
 import java.io.*;
 import java.net.*;
+import org.gjt.sp.jedit.*;
 import org.gjt.sp.util.Log;
-//}}}
 
 /**
  * URL VFS.
@@ -36,22 +32,29 @@ import org.gjt.sp.util.Log;
  */
 public class UrlVFS extends VFS
 {
-	//{{{ UrlVFS constructor
 	public UrlVFS()
 	{
-		super("url",READ_CAP | WRITE_CAP);
-	} //}}}
+		super("url");
+	}
 
-	//{{{ constructPath() method
+	public int getCapabilities()
+	{
+		return READ_CAP | WRITE_CAP;
+	}
+
 	public String constructPath(String parent, String path)
 	{
 		if(parent.endsWith("/"))
 			return parent + path;
 		else
 			return parent + '/' + path;
-	} //}}}
+	}
 
-	//{{{ _createInputStream() method
+	public String getParentOfPath(String path)
+	{
+		return MiscUtilities.getParentOfPath(path);
+	}
+
 	public InputStream _createInputStream(Object session,
 		String path, boolean ignoreErrors, Component comp)
 		throws IOException
@@ -63,13 +66,12 @@ public class UrlVFS extends VFS
 		catch(MalformedURLException mu)
 		{
 			Log.log(Log.ERROR,this,mu);
-			String[] args = { mu.getMessage() };
-			VFSManager.error(comp,path,"ioerror.badurl",args);
+			String[] args = { path, mu.getMessage() };
+			VFSManager.error(comp,"badurl",args);
 			return null;
 		}
-	} //}}}
+	}
 
-	//{{{ _createOutputStream() method
 	public OutputStream _createOutputStream(Object session, String path,
 		Component comp) throws IOException
 	{
@@ -81,9 +83,9 @@ public class UrlVFS extends VFS
 		catch(MalformedURLException mu)
 		{
 			Log.log(Log.ERROR,this,mu);
-			String[] args = { mu.getMessage() };
-			VFSManager.error(comp,path,"ioerror.badurl",args);
+			String[] args = { path };
+			VFSManager.error(comp,"badurl",args);
 			return null;
 		}
-	} //}}}
+	}
 }

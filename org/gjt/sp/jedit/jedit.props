@@ -1,31 +1,14 @@
 ###
 ### jEdit global properties
-### :tabSize=8:indentSize=8:noTabs=false:
-### :folding=explicit:collapseFolds=1:
-###
-### Copyright (C) 1998, 2003 Slava Pestov
+### Copyright (C) 1998, 2001 Slava Pestov
 ###
 
-#{{{ Global settings
+###
+### GLOBAL SETTINGS
+###
 
 # Swing look and feel
 #lookAndFeel=javax.swing.plaf.metal.MetalLookAndFeel
-
-#{{{ Metal control and menu font
-metal.primary.font=Dialog
-metal.primary.fontsize=12
-metal.primary.fontstyle=0
-#}}}
-
-#{{{ Metal system and user text font
-metal.secondary.font=Dialog
-metal.secondary.fontsize=12
-metal.secondary.fontstyle=0
-#}}}
-
-# Decorate frames and dialogs using Swing L&F? (JDK 1.4 only)
-decorate.frames=false
-decorate.dialogs=false
 
 # If true, welcome screen will be displayed.
 # Set to false after initial startup.
@@ -37,32 +20,29 @@ autosave=30
 # Maximum number of elements in a history list
 history=20
 
-# Number of recent files
-recentFiles=40
+# Number of files for which to remember caret positions
+recentFiles=50
 
 # Restore open files on startup?
 restore=true
 
 # Restore even if file names specified on command line?
-restore.cli=true
+restore.cli=false
+
+# Client instances open new views?
+client.newView=false
 
 # Persistent markers
 persistentMarkers=true
 
-# Two-stage save (save to #filename#save# first, then filename)
-twoStageSave=true
-
-# Strip trailing EOL
-stripTrailingEOL=true
-
-# Need this so that new files have a trailing EOL
-buffer.trailingEOL=true
-
 # Caret saving toggle
 saveCaret=true
 
-# Backup on every save
-backupEverySave=false
+# Parse files fully when loading for syntax info
+parseFully=false
+
+# I/O thread count
+ioThreadCount=4
 
 # Number of backups to make, 0=no backups
 backups=1
@@ -74,37 +54,14 @@ backup.directory=
 backup.prefix=
 backup.suffix=~
 
-# Min time between backups (0 = always backup)
-backup.minTime=0
-
 # Sort buffer list
 sortBuffers=true
 sortByName=true
 
-# Sort recent file list
-sortRecent=false
-
-# Default firewall properties
-firewall.enabled=false
-
-# Keep dialog on by default
-search.keepDialog.toggle=true
-
-# Confirm dialogs
-confirmSaveAll=true
-
-# Check modification status on focus?
-
-# If this is true, show a dialog; if false, do nothing
-autoReloadDialog=true
-
-# If this is true, auto reload; if false, 'reload' button in dialog
-autoReload=true
-
-#}}}
-
-#{{{ Buffer settings
-# These can also be specified as buffer-local properties
+###
+### BUFFER SETTINGS
+### These can also be specified as buffer-local properties
+###
 
 # Line separator
 # The OS default will be used if this is not specified
@@ -117,9 +74,6 @@ autoReload=true
 # The OS default will be used if this is not specified
 #buffer.encoding=ISO8859_1
 
-# Auto-detect GZIP, UTF16, UTF8 and XML encodings?
-buffer.encodingAutodetect=true
-
 # Tab width
 buffer.tabSize=8
 
@@ -129,14 +83,18 @@ buffer.indentSize=8
 # Soft tabs
 buffer.noTabs=false
 
+# Auto indent
+buffer.indentOnTab=false
+buffer.indentOnEnter=true
+
 # Default edit mode
 buffer.defaultMode=text
 
 # Undo queue size
 buffer.undoCount=100
 
-# Wrap mode (none, soft, hard)
-buffer.wrap=none
+# Syntax highlighting
+buffer.syntax=true
 
 # Wrap column
 buffer.maxLineLen=80
@@ -145,31 +103,32 @@ buffer.maxLineLen=80
 buffer.wordBreakChars=
 
 # Non-alphanumeric word characters
-buffer.noWordSep=_
-
-# Fold mode (explicit, indent, or none)
-buffer.folding=none
+buffer.noWordSep=
 
 # Folds with a level equal to or higher than this will be collapsed
 buffer.collapseFolds=0
-#}}}
 
-#{{{ View settings
+###
+### VIEW SETTINGS
+###
 
 # Apply jEdit colors to Swing text fields, text areas, lists, tables and trees?
-textColors=false
+globalColors=false
 
 # Show toolbar?
 view.showToolbar=true
 
 # Show searchbar?
-view.showSearchbar=false
+view.showSearchbar=true
 
 # Show buffer switcher?
 view.showBufferSwitcher=true
 
 # Show full path in title bar?
 view.showFullPath=false
+
+# Check modification status on focus?
+view.checkModStatus=true
 
 # Font
 view.font=Monospaced
@@ -183,15 +142,15 @@ view.fgColor=#000000
 
 # Line highlighting
 view.lineHighlight=true
-view.lineHighlightColor=#ffffe0
+view.lineHighlightColor=#e0e0e0
 
 # Bracket highlighting
-view.structureHighlight=true
-view.structureHighlightColor=#000000
+view.bracketHighlight=true
+view.bracketHighlightColor=#000000
 
 # EOL markers
 view.eolMarkers=true
-view.eolMarkerColor=#ff6633
+view.eolMarkerColor=#009999
 
 # Wrap guide
 view.wrapGuide=true
@@ -202,7 +161,6 @@ view.caretColor=#ff0000
 
 # Selection color
 view.selectionColor=#ccccff
-view.multipleSelectionColor=#ccffcc
 
 # Caret blinking
 view.caretBlink=true
@@ -213,42 +171,30 @@ view.blockCaret=false
 # Electric borders
 view.electricBorders=3
 
-# Treat consecutive non-alphanumeric characters as one word
-view.joinNonWordChars=true
+# Smart home/end
+view.homeEnd=true
 
 # Middle mouse button pastes % register
-view.middleMousePaste=false
-
-# Drag and drop of text
-view.dragAndDrop=true
-
-#{{{ Gutter
+view.middleMousePaste=true
 
 # Gutter background color
-view.gutter.bgColor=#dbdbdb
+view.gutter.bgColor=#ffffff
 
 # Gutter foreground color
 view.gutter.fgColor=#000000
 
 # Gutter highlight color
-view.gutter.highlightColor=#990066
+view.gutter.highlightColor=#8080ff
 
 # Gutter current line highlight color
-view.gutter.currentLineColor=#ff0033
-
-# Gutter bracket highlighting
-view.gutter.structureHighlight=true
-view.gutter.structureHighlightColor=#666699
+view.gutter.currentLineColor=#d04040
 
 # Gutter marker highlight color
 view.gutter.markerColor=#ccffcc
 
 # Gutter border colors
-view.gutter.focusBorderColor=#990099
-view.gutter.noFocusBorderColor=#ffffff
-
-# Fold triangle color
-view.gutter.foldColor=#838383
+view.gutter.focusBorderColor=#8080ff
+view.gutter.noFocusBorderColor=#808080
 
 # Gutter font name
 view.gutter.font=Monospaced
@@ -261,7 +207,7 @@ view.gutter.fontstyle=0
 view.gutter.fontsize=10
 
 # Gutter border width
-view.gutter.borderWidth=2
+view.gutter.borderWidth=3
 
 # Gutter displays line numbers
 view.gutter.lineNumbers=false
@@ -278,78 +224,42 @@ view.gutter.highlightCurrentLine=true
 # Marker highlight
 view.gutter.markerHighlight=true
 
-# Click behavior
-view.gutter.foldClick=toggle-fold
-view.gutter.SfoldClick=toggle-fold-fully
-view.gutter.CfoldClick=select-fold
-view.gutter.AfoldClick=narrow-fold
-view.gutter.structClick=match-struct
-view.gutter.CstructClick=select-struct
-view.gutter.AstructClick=narrow-struct
-#}}}
+# Docking border color (non-Metal L&F only)
+view.docking.borderColor=#ccccff
 
 # Expand abbrevs when space bar pressed
 view.expandOnInput=false
 
-#{{{ Syntax styles
-view.style.comment1=color:#cc0000
-view.style.comment2=color:#ff8400
-view.style.comment3=color:#6600cc
-view.style.comment4=color:#cc6600
-view.style.digit=color:#ff0000
-view.style.foldLine.0=color:#000000 bgColor:#dafeda style:b
-view.style.foldLine.1=color:#000000 bgColor:#fff0cc style:b
-view.style.foldLine.2=color:#000000 bgColor:#e7e7ff style:b
-view.style.foldLine.3=color:#000000 bgColor:#ffe0f0 style:b
-view.style.function=color:#9966ff
-view.style.invalid=color:#ff0066 bgColor:#ffffcc
-view.style.keyword1=color:#006699 style:b
-view.style.keyword2=color:#009966 style:b
-view.style.keyword3=color:#0099ff style:b
-view.style.keyword4=color:#66ccff style:b
-view.style.label=color:#02b902
-view.style.literal1=color:#ff00cc
-view.style.literal2=color:#cc00cc
-view.style.literal3=color:#9900cc
-view.style.literal4=color:#6600cc
-view.style.markup=color:#0000ff
-view.style.operator=color:#000000 style:b
-#}}}
+# Syntax styles
+view.style.comment1=color:#009900 style:i
+view.style.comment2=color:#990033 style:i
+view.style.digit=color:#009191
+view.style.function=color:#000099
+view.style.invalid=color:#ff0000 style:b
+view.style.keyword1=color:#000000 style:b
+view.style.keyword2=style:b
+view.style.keyword3=style:b
+view.style.label=color:#990033 style:ib
+view.style.literal1=color:#404040
+view.style.literal2=color:#404040
+view.style.markup=color:#5e5e5e style:b
+view.style.operator=style:b
 
-# Fancy Java2D stuff
+# Java 2 only
 view.antiAlias=false
 view.fracFontMetrics=false
 
-# Docking and tool bar positioning
+# Docking
 view.docking.alternateLayout=false
-view.toolbar.alternateLayout=false
+view.docking.tabsPos=0
 
-#{{{ Status bar
-view.status.foreground=black
-view.status.background=white
-view.status.visible=true
-view.status.show-caret-status=true
-view.status.show-edit-mode=true
-view.status.show-fold-mode=true
-view.status.show-encoding=true
-view.status.show-wrap=true
-view.status.show-multi-select=true
-view.status.show-rect-select=true
-view.status.show-overwrite=true
-view.status.show-line-seperator=true
-view.status.show-memory=true
-view.status.show-clock=false
-view.status.memory.foreground=#cccccc
-view.status.memory.background=#666699a
-#}}}
-
-#}}}
-
-#{{{ Printing settings
+###
+### PRINTING
+###
 
 # Font
 print.font=Monospaced
-print.fontsize=9
+print.fontsize=10
 print.fontstyle=0
 
 # Print header?
@@ -361,69 +271,27 @@ print.footer=true
 # Print line numbers?
 print.lineNumbers=true
 
-# Print in color, or black and white?
+# Use style and color info from defined SyntaxStyles?
+print.style=true
 print.color=false
 
-# Print tab size
-print.tabSize=2
+# Margins
+print.margin.top=0.5
+print.margin.left=0.5
+print.margin.bottom=0.5
+print.margin.right=0.5
 
-# Force JDK 1.3 API even on 1.4
-print.force13=false
+###
+### FILE SYSTEM BROWSER SETTINGS
+###
 
-# Force use of glyph vectors to work around spacing problems
-print.glyphVector=false
-#}}}
-
-#{{{ File system browser settings
-vfs.browser.showMenubar=true
-vfs.browser.showToolbar=true
 vfs.browser.showIcons=true
 vfs.browser.showHiddenFiles=false
+vfs.browser.sortFiles=true
 vfs.browser.sortMixFilesAndDirs=false
 vfs.browser.sortIgnoreCase=true
 vfs.browser.doubleClickClose=false
-vfs.browser.currentBufferFilter=false
+vfs.browser.currentBufferFilter=true
 
 # Can be one of: buffer, home, favorites, last
 vfs.browser.defaultPath=buffer
-
-# File list coloring
-vfs.browser.colorize=true
-
-vfs.browser.colors.0.glob={CVS,#*,*~,\\.*}
-vfs.browser.colors.0.color=#a0a0a0
-vfs.browser.colors.1.glob=*.class
-vfs.browser.colors.1.color=#660066
-vfs.browser.colors.2.glob={build.xml,makefile*}
-vfs.browser.colors.2.color=#666600
-vfs.browser.colors.3.glob=*.{gif,jpg,jpeg,png,bmp,xpm,svg}
-vfs.browser.colors.3.color=#009933
-vfs.browser.colors.4.glob=*.{gz,jar,zip,tgz,z,war,ear}
-vfs.browser.colors.4.color=#990000
-vfs.browser.colors.5.glob=tags
-vfs.browser.colors.5.color=#003366
-vfs.browser.colors.6.glob=*.{sh,bat,cmd}
-vfs.browser.colors.6.color=#006666
-vfs.browser.colors.7.glob={CHANGELOG,CHANGES,INSTALL,LICENSE,NEWS,README,TODO}{,.txt}
-vfs.browser.colors.7.color=#330066
-vfs.browser.colors.8.glob=*.{props,properties}
-vfs.browser.colors.8.color=#666666
-
-#}}}
-
-#{{{ Plugin manager settings
-plugin-manager.downloadSource=false
-plugin-manager.installUser=true
-plugin-manager.showAll=true
-plugin-manager.mirror.id=NONE
-plugin-manager.deleteDownloads=true
-plugin-manager.hide-libraries.toggle=true
-#}}}
-
-#{{{ Hidden settings
-menu.spillover=20
-bufferSwitcher.maxRowCount=10
-showTooltips=true
-ioThreadCount=4
-server.brokenToFront=false
-#}}}

@@ -1,9 +1,6 @@
 /*
  * CurrentBufferSet.java - Current buffer matcher
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1999, 2001 Slava Pestov
+ * Copyright (C) 1999 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -31,36 +28,79 @@ import org.gjt.sp.jedit.*;
  */
 public class CurrentBufferSet implements SearchFileSet
 {
-	//{{{ getFirstFile() method
-	public String getFirstFile(View view)
+	/**
+	 * Returns the first buffer to search.
+	 * @param view The view performing the search
+	 */
+	public Buffer getFirstBuffer(View view)
 	{
-		return view.getBuffer().getPath();
-	} //}}}
+		return view.getBuffer();
+	}
 
-	//{{{ getNextFile() method
-	public String getNextFile(View view, String file)
+	/**
+	 * Returns the next buffer to search.
+	 * @param view The view performing the search
+	 * @param buffer The last buffer searched
+	 */
+	public Buffer getNextBuffer(View view, Buffer buffer)
 	{
-		if(file == null)
-			return view.getBuffer().getPath();
+		if(buffer == null)
+			return view.getBuffer();
 		else
 			return null;
-	} //}}}
+	}
 
-	//{{{ getFiles() method
-	public String[] getFiles(View view)
-	{
-		return new String[] { view.getBuffer().getPath() };
-	} //}}}
+	/**
+	 * Called if the specified buffer was found to have a match.
+	 * @param buffer The buffer
+	 */
+	public void matchFound(Buffer buffer) {}
 
-	//{{{ getFileCount() method
-	public int getFileCount(View view)
+	/**
+	 * Returns the number of buffers in this file set.
+	 */
+	public int getBufferCount()
 	{
 		return 1;
-	} //}}}
+	}
 
-	//{{{ getCode() method
+	/**
+	 * Returns the BeanShell code that will recreate this file set.
+	 * @since jEdit 2.7pre3
+	 */
 	public String getCode()
 	{
 		return "new CurrentBufferSet()";
-	} //}}}
+	}
 }
+/*
+ * ChangeLog:
+ * $Log$
+ * Revision 1.1  2001/09/02 05:37:55  spestov
+ * Initial revision
+ *
+ * Revision 1.8  2000/11/24 06:48:35  sp
+ * Caret position history
+ *
+ * Revision 1.7  2000/05/14 10:55:22  sp
+ * Tool bar editor started, improved view registers dialog box
+ *
+ * Revision 1.6  1999/11/28 00:33:07  sp
+ * Faster directory search, actions slimmed down, faster exit/close-all
+ *
+ * Revision 1.5  1999/10/10 06:38:45  sp
+ * Bug fixes and quicksort routine
+ *
+ * Revision 1.4  1999/10/02 01:12:36  sp
+ * Search and replace updates (doesn't work yet), some actions moved to TextTools
+ *
+ * Revision 1.3  1999/06/09 07:28:10  sp
+ * Multifile search and replace tweaks, removed console.html
+ *
+ * Revision 1.2  1999/06/09 05:22:11  sp
+ * Find next now supports multi-file searching, minor Perl mode tweak
+ *
+ * Revision 1.1  1999/06/03 08:24:13  sp
+ * Fixing broken CVS
+ *
+ */

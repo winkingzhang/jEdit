@@ -1,9 +1,6 @@
 /*
  * GeneralOptionPane.java - General options panel
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1998, 2003 Slava Pestov
+ * Copyright (C) 1998, 1999, 2000, 2001 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,86 +19,45 @@
 
 package org.gjt.sp.jedit.options;
 
-//{{{ Imports
 import javax.swing.*;
-import java.awt.event.*;
-import java.util.Arrays;
+import java.awt.*;
+import java.io.*;
 import org.gjt.sp.jedit.*;
-//}}}
-
-
+import org.gjt.sp.util.Log;
 
 public class GeneralOptionPane extends AbstractOptionPane
 {
-	//{{{ GeneralOptionPane constructor
 	public GeneralOptionPane()
 	{
 		super("general");
-	} //}}}
+	}
 
-	//{{{ _init() method
+	// protected members
 	protected void _init()
 	{
-		
-		/* Line separator */
-		String[] lineSeps = { jEdit.getProperty("lineSep.unix"),
-			jEdit.getProperty("lineSep.windows"),
-			jEdit.getProperty("lineSep.mac") };
-		lineSeparator = new JComboBox(lineSeps);
-		String lineSep = jEdit.getProperty("buffer.lineSeparator",
-			System.getProperty("line.separator"));
-		if("\n".equals(lineSep))
-			lineSeparator.setSelectedIndex(0);
-		else if("\r\n".equals(lineSep))
-			lineSeparator.setSelectedIndex(1);
-		else if("\r".equals(lineSep))
-			lineSeparator.setSelectedIndex(2);
-		addComponent(jEdit.getProperty("options.general.lineSeparator"),
-			lineSeparator);
+		/* Look and feel */
+		addComponent(new JLabel(jEdit.getProperty("options.general.lf.note")));
 
-		/* Default file encoding */
-		String[] encodings = MiscUtilities.getEncodings(true);
-		Arrays.sort(encodings,new MiscUtilities.StringICaseCompare());
-		encoding = new JComboBox(encodings);
-		encoding.setEditable(true);
-		encoding.setSelectedItem(jEdit.getProperty("buffer.encoding",
-			System.getProperty("file.encoding")));
-		addComponent(jEdit.getProperty("options.general.encoding"),encoding);
+		lfs = UIManager.getInstalledLookAndFeels();
+		String[] names = new String[lfs.length];
+		String lf = UIManager.getLookAndFeel().getClass().getName();
+		int index = 0;
+		for(int i = 0; i < names.length; i++)
+		{
+			names[i] = lfs[i].getName();
+			if(lf.equals(lfs[i].getClassName()))
+				index = i;
+		}
 
-		/* Auto detect encoding */
-		encodingAutodetect = new JCheckBox(jEdit.getProperty(
-			"options.general.encodingAutodetect"));
-		encodingAutodetect.setSelected(jEdit.getBooleanProperty("buffer.encodingAutodetect"));
-		addComponent(encodingAutodetect);
+		lookAndFeel = new JComboBox(names);
+		lookAndFeel.setSelectedIndex(index);
 
-		/* Check mod status on focus */
-		String[] modCheckOptions = {
-			jEdit.getProperty("options.general.checkModStatus.nothing"),
-			jEdit.getProperty("options.general.checkModStatus.prompt"),
-			jEdit.getProperty("options.general.checkModStatus.reload")
-		};
-		checkModStatus = new JComboBox(modCheckOptions);
-		if(jEdit.getBooleanProperty("autoReload"))
-			checkModStatus.setSelectedIndex(2);
-		else if(jEdit.getBooleanProperty("autoReloadDialog"))
-			checkModStatus.setSelectedIndex(1);
-		else
-			checkModStatus.setSelectedIndex(0);
-		addComponent(jEdit.getProperty("options.general.checkModStatus"),
-			checkModStatus);
+		addComponent(jEdit.getProperty("options.general.lf"),
+			lookAndFeel);
 
-		/* Recent file list size */
-		recentFiles = new JTextField(jEdit.getProperty(
-			"options.general.recentFiles"));
-		recentFiles.setText(jEdit.getProperty("recentFiles"));
-		addComponent(jEdit.getProperty("options.general.recentFiles"),
-			recentFiles);
-
-		/* Sort recent file list */
-		sortRecent = new JCheckBox(jEdit.getProperty(
-			"options.general.sortRecent"));
-		sortRecent.setSelected(jEdit.getBooleanProperty("sortRecent"));
-		addComponent(sortRecent);
+		/* History count */
+		history = new JTextField(jEdit.getProperty("history"));
+		addComponent(jEdit.getProperty("options.general.history"),history);
 
 		/* Save caret positions */
 		saveCaret = new JCheckBox(jEdit.getProperty(
@@ -109,124 +65,126 @@ public class GeneralOptionPane extends AbstractOptionPane
 		saveCaret.setSelected(jEdit.getBooleanProperty("saveCaret"));
 		addComponent(saveCaret);
 
-		/* Persistent markers */
-		persistentMarkers = new JCheckBox(jEdit.getProperty(
-			"options.general.persistentMarkers"));
-		persistentMarkers.setSelected(jEdit.getBooleanProperty(
-			"persistentMarkers"));
-		addComponent(persistentMarkers);
-
-		/* Session management */
-		restore = new JCheckBox(jEdit.getProperty(
-			"options.general.restore"));
-		restore.setSelected(jEdit.getBooleanProperty("restore"));
-		restore.addActionListener(new ActionListener()
-		{
-			public void actionPerformed(ActionEvent evt)
-			{
-				restoreCLI.setEnabled(restore.isSelected());
-			}
-		});
-
-		addComponent(restore);
-		restoreCLI = new JCheckBox(jEdit.getProperty(
-			"options.general.restore.cli"));
-		restoreCLI.setSelected(jEdit.getBooleanProperty("restore.cli"));
-		restoreCLI.setEnabled(restore.isSelected());
-		addComponent(restoreCLI);
-
 		/* Sort buffers */
 		sortBuffers = new JCheckBox(jEdit.getProperty(
 			"options.general.sortBuffers"));
 		sortBuffers.setSelected(jEdit.getBooleanProperty("sortBuffers"));
-		sortBuffers.addActionListener(new ActionListener()
-		{
-			public void actionPerformed(ActionEvent evt)
-			{
-				sortByName.setEnabled(sortBuffers.isSelected());
-			}
-		});
-
 		addComponent(sortBuffers);
 
 		/* Sort buffers by names */
 		sortByName = new JCheckBox(jEdit.getProperty(
 			"options.general.sortByName"));
 		sortByName.setSelected(jEdit.getBooleanProperty("sortByName"));
-		sortByName.setEnabled(sortBuffers.isSelected());
 		addComponent(sortByName);
-		
-		newKeyboardHandling = new JCheckBox(jEdit.getProperty("options.general.newkeyhandling"));
-		newKeyboardHandling.setSelected(jEdit.getBooleanProperty("newkeyhandling"));
-		addComponent(newKeyboardHandling);
-		
 
-	} //}}}
+		/* Check mod status on focus */
+		checkModStatus = new JCheckBox(jEdit.getProperty(
+			"options.general.checkModStatus"));
+		checkModStatus.setSelected(jEdit.getBooleanProperty(
+			"view.checkModStatus"));
+		addComponent(checkModStatus);
 
-	//{{{ _save() method
+		/* Show full path */
+		showFullPath = new JCheckBox(jEdit.getProperty(
+			"options.general.showFullPath"));
+		showFullPath.setSelected(jEdit.getBooleanProperty(
+			"view.showFullPath"));
+		addComponent(showFullPath);
+
+		/* Show search bar */
+		showSearchbar = new JCheckBox(jEdit.getProperty(
+			"options.general.showSearchbar"));
+		showSearchbar.setSelected(jEdit.getBooleanProperty(
+			"view.showSearchbar"));
+		addComponent(showSearchbar);
+
+		/* Show buffer switcher */
+		showBufferSwitcher = new JCheckBox(jEdit.getProperty(
+			"options.general.showBufferSwitcher"));
+		showBufferSwitcher.setSelected(jEdit.getBooleanProperty(
+			"view.showBufferSwitcher"));
+		addComponent(showBufferSwitcher);
+
+		/* Show tip of the day */
+		showTips = new JCheckBox(jEdit.getProperty(
+			"options.general.showTips"));
+		showTips.setSelected(jEdit.getBooleanProperty("tip.show"));
+		addComponent(showTips);
+
+		/* Show splash screen */
+		showSplash = new JCheckBox(jEdit.getProperty(
+			"options.general.showSplash"));
+		String settingsDirectory = jEdit.getSettingsDirectory();
+		if(settingsDirectory == null)
+			showSplash.setSelected(true);
+		else
+			showSplash.setSelected(!new File(settingsDirectory,"nosplash").exists());
+		addComponent(showSplash);
+
+		/* Global colors */
+		globalColors = new JCheckBox(jEdit.getProperty(
+			"options.general.globalColors"));
+		globalColors.setSelected(jEdit.getBooleanProperty("globalColors"));
+		addComponent(globalColors);
+	}
+
 	protected void _save()
 	{
-		
-		String lineSep = null;
-		switch(lineSeparator.getSelectedIndex())
-		{
-		case 0:
-			lineSep = "\n";
-			break;
-		case 1:
-			lineSep = "\r\n";
-			break;
-		case 2:
-			lineSep = "\r";
-			break;
-		}
-		jEdit.setProperty("buffer.lineSeparator",lineSep);
-		jEdit.setProperty("buffer.encoding",(String)
-			encoding.getSelectedItem());
-		jEdit.setBooleanProperty("buffer.encodingAutodetect",
-			encodingAutodetect.isSelected());
-		switch(checkModStatus.getSelectedIndex())
-		{
-		case 0:
-			jEdit.setBooleanProperty("autoReloadDialog",false);
-			jEdit.setBooleanProperty("autoReload",false);
-			break;
-		case 1:
-			jEdit.setBooleanProperty("autoReloadDialog",true);
-			jEdit.setBooleanProperty("autoReload",false);
-			break;
-		case 2:
-			jEdit.setBooleanProperty("autoReloadDialog",true);
-			jEdit.setBooleanProperty("autoReload",true);
-			break;
-		}
-		jEdit.setProperty("recentFiles",recentFiles.getText());
-		jEdit.setBooleanProperty("sortRecent",sortRecent.isSelected());
-		boolean nkh = newKeyboardHandling.isSelected();
-		jEdit.setBooleanProperty("newkeyhandling", nkh);
-		Debug.SIMPLIFIED_KEY_HANDLING = nkh;
+		String lf = lfs[lookAndFeel.getSelectedIndex()].getClassName();
+		jEdit.setProperty("lookAndFeel",lf);
+		jEdit.setProperty("history",history.getText());
 		jEdit.setBooleanProperty("saveCaret",saveCaret.isSelected());
-		jEdit.setBooleanProperty("persistentMarkers",
-			persistentMarkers.isSelected());
-		jEdit.setBooleanProperty("restore",restore.isSelected());
-		jEdit.setBooleanProperty("restore.cli",restoreCLI.isSelected());
 		jEdit.setBooleanProperty("sortBuffers",sortBuffers.isSelected());
 		jEdit.setBooleanProperty("sortByName",sortByName.isSelected());
-	} //}}}
+		jEdit.setBooleanProperty("view.checkModStatus",checkModStatus
+			.isSelected());
+		jEdit.setBooleanProperty("view.showFullPath",showFullPath
+			.isSelected());
+		jEdit.setBooleanProperty("view.showSearchbar",showSearchbar
+			.isSelected());
+		jEdit.setBooleanProperty("view.showBufferSwitcher",
+			showBufferSwitcher.isSelected());
+		jEdit.setBooleanProperty("tip.show",showTips.isSelected());
 
-	//{{{ Private members
-	private JComboBox lineSeparator;
-	private JComboBox encoding;
-	private JCheckBox encodingAutodetect;
-	private JComboBox checkModStatus;
-	private JTextField recentFiles;
+		// this is handled a little differently from other jEdit settings
+		// as the splash screen flag needs to be known very early in the
+		// startup sequence, before the user properties have been loaded
+		String settingsDirectory = jEdit.getSettingsDirectory();
+		if(settingsDirectory != null)
+		{
+			File file = new File(settingsDirectory,"nosplash");
+			if(showSplash.isSelected())
+				file.delete();
+			else
+			{
+				try
+				{
+					FileOutputStream out = new FileOutputStream(file);
+					out.write('\n');
+					out.close();
+				}
+				catch(IOException io)
+				{
+					Log.log(Log.ERROR,this,io);
+				}
+			}
+		}
+
+		jEdit.setBooleanProperty("globalColors",globalColors.isSelected());
+	}
+
+	// private members
+	private UIManager.LookAndFeelInfo[] lfs;
+	private JComboBox lookAndFeel;
+	private JTextField history;
 	private JCheckBox saveCaret;
-	private JCheckBox sortRecent;
-	private JCheckBox persistentMarkers;
-	private JCheckBox restore;
-	private JCheckBox restoreCLI;
 	private JCheckBox sortBuffers;
 	private JCheckBox sortByName;
-	private JCheckBox newKeyboardHandling;
-	//}}}
+	private JCheckBox checkModStatus;
+	private JCheckBox showFullPath;
+	private JCheckBox showSearchbar;
+	private JCheckBox showBufferSwitcher;
+	private JCheckBox showTips;
+	private JCheckBox showSplash;
+	private JCheckBox globalColors;
 }

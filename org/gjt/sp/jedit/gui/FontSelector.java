@@ -1,11 +1,7 @@
 /*
  * FontSelector.java - Font selector
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 2000, 2003 Slava Pestov
+ * Copyright (C) 2000, 2001 Slava Pestov
  * Portions copyright (C) 1999 Jason Ginchereau
- * Portions copyright (C) 2003 mike dillon
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -24,18 +20,14 @@
 
 package org.gjt.sp.jedit.gui;
 
-//{{{ Imports
 import java.awt.event.*;
 import java.awt.*;
 import java.util.Vector;
 import javax.swing.border.*;
 import javax.swing.event.*;
 import javax.swing.*;
-import org.gjt.sp.jedit.*;
-import org.gjt.sp.util.Log;
-//}}}
+import org.gjt.sp.jedit.jEdit;
 
-//{{{ FontSelector class
 /**
  * A font chooser widget.
  * @author Slava Pestov
@@ -43,55 +35,18 @@ import org.gjt.sp.util.Log;
  */
 public class FontSelector extends JButton
 {
-	//{{{ FontSelector constructor
-	/**
-	 * Creates a new font selector control.
-	 * @param font The font
-	 */
 	public FontSelector(Font font)
 	{
-		this(font,false);
-	} //}}}
-
-	//{{{ FontSelector constructor
-	/**
-	 * Creates a new font selector control.
-	 * @param font The font
-	 * @param antiAlias Is anti-aliasing enabled?
-	 * @since jEdit 4.2pre7
-	 */
-	public FontSelector(Font font, boolean antiAlias)
-	{
 		setFont(font);
-		this.antiAlias = antiAlias;
 
 		updateText();
 
 		setRequestFocusEnabled(false);
 
 		addActionListener(new ActionHandler());
-	} //}}}
+	}
 
-	//{{{ paintComponent() method
-	public void paintComponent(Graphics g)
-	{
-		setAntiAliasEnabled(g);
-		super.paintComponent(g);
-	} //}}}
-
-	//{{{ isAntiAliasEnabled() method
-	public boolean isAntiAliasEnabled()
-	{
-		return antiAlias;
-	} //}}}
-
-	//{{{ setAntiAliasEnabled() method
-	public void setAntiAliasEnabled(boolean antiAlias)
-	{
-		this.antiAlias = antiAlias;
-	} //}}}
-
-	//{{{ updateText() method
+	// private members
 	private void updateText()
 	{
 		Font font = getFont();
@@ -115,175 +70,41 @@ public class FontSelector extends JButton
 			break;
 		}
 
-		setText(font.getName() + " " + font.getSize() + " " + styleString);
-	} //}}}
+		setText(font.getFamily() + " " + font.getSize() + " " + styleString);
+	}
 
-	//{{{ setAntiAliasEnabled() method
-	void setAntiAliasEnabled(Graphics g)
-	{
-		if (antiAlias)
-		{
-			Graphics2D g2 = (Graphics2D)g;
-			g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-				RenderingHints.VALUE_ANTIALIAS_ON);
-		}
-	} //}}}
-
-	private boolean antiAlias;
-
-	//{{{ ActionHandler class
 	class ActionHandler implements ActionListener
 	{
 		public void actionPerformed(ActionEvent evt)
 		{
-			Font font;
-
-			JDialog dialog = GUIUtilities.getParentDialog(FontSelector.this);
-			if(dialog == null)
-			{
-				font = new FontSelectorDialog(
-					JOptionPane.getFrameForComponent(
-					FontSelector.this),getFont(),
-					FontSelector.this)
-					.getSelectedFont();
-			}
-			else
-			{
-				font = new FontSelectorDialog(dialog,getFont(),
-					FontSelector.this)
-					.getSelectedFont();
-			}
-
+			Font font = new FontSelectorDialog(FontSelector.this,getFont())
+				.getSelectedFont();
 			if(font != null)
 			{
 				setFont(font);
 				updateText();
 			}
 		}
-	} //}}}
-} //}}}
+	}
+}
 
-//{{{ FontSelectorDialog class
 class FontSelectorDialog extends EnhancedDialog
 {
-	//{{{ FontSelectorDialog constructor
-	public FontSelectorDialog(Frame parent, Font font)
+	public FontSelectorDialog(Component comp, Font font)
 	{
-		super(parent,jEdit.getProperty("font-selector.title"),true);
-		init(font);
-	} //}}}
+		super(JOptionPane.getFrameForComponent(comp),
+			jEdit.getProperty("font-selector.title"),true);
 
-	//{{{ FontSelectorDialog constructor
-	public FontSelectorDialog(Dialog parent, Font font)
-	{
-		super(parent,jEdit.getProperty("font-selector.title"),true);
-		init(font);
-	} //}}}
-
-	//{{{ FontSelectorDialog constructor
-	public FontSelectorDialog(Frame parent, Font font,
-		FontSelector fontSelector)
-	{
-		super(parent,jEdit.getProperty("font-selector.title"),true);
-		this.fontSelector = fontSelector;
-		init(font);
-	} //}}}
-
-	//{{{ FontSelectorDialog constructor
-	public FontSelectorDialog(Dialog parent, Font font,
-		FontSelector fontSelector)
-	{
-		super(parent,jEdit.getProperty("font-selector.title"),true);
-		this.fontSelector = fontSelector;
-		init(font);
-	} //}}}
-
-	//{{{ ok() method
-	public void ok()
-	{
-		isOK = true;
-		dispose();
-	} //}}}
-
-	//{{{ cancel() method
-	public void cancel()
-	{
-		dispose();
-	} //}}}
-
-	//{{{ getSelectedFont() method
-	public Font getSelectedFont()
-	{
-		if(!isOK)
-			return null;
-
-		int size;
-		try
-		{
-			size = Integer.parseInt(sizeField.getText());
-		}
-		catch(Exception e)
-		{
-			size = 12;
-		}
-
-		return new Font(familyField.getText(),styleList
-			.getSelectedIndex(),size);
-	} //}}}
-
-	//{{{ Private members
-
-	//{{{ Instance variables
-	private FontSelector fontSelector;
-	private boolean isOK;
-	private JTextField familyField;
-	private JList familyList;
-	private JTextField sizeField;
-	private JList sizeList;
-	private JTextField styleField;
-	private JList styleList;
-	private JLabel preview;
-	private JButton ok;
-	private JButton cancel;
-	//}}}
-
-	/**
-	 * For some reason the default Java fonts show up in the
-	 * list with .bold, .bolditalic, and .italic extensions.
-	 */
-	private static final String[] HIDEFONTS = {
-		".bold",
-		".italic"
-	};
-
-	//{{{ init() method
-	private void init(Font font)
-	{
 		JPanel content = new JPanel(new BorderLayout());
 		content.setBorder(new EmptyBorder(12,12,12,12));
 		setContentPane(content);
 
 		JPanel listPanel = new JPanel(new GridLayout(1,3,6,6));
 
-		String[] fonts;
-		try
-		{
-			fonts = getFontList();
-		}
-		catch(Exception e)
-		{
-			Log.log(Log.ERROR,this,"Broken Java implementation!");
-			/* Log.log(Log.ERROR,this,"Using deprecated Toolkit.getFontList()"); */
-			Log.log(Log.ERROR,this,e);
-
-			/* fonts = getToolkit().getFontList(); */
-			fonts = new String[] { "Broken Java implementation!" };
-		}
-
 		JPanel familyPanel = createTextFieldAndListPanel(
 			"font-selector.family",
 			familyField = new JTextField(),
-			familyList = new JList(fonts));
+			familyList = new JList(getFontList()));
 		listPanel.add(familyPanel);
 
 		String[] sizes = { "9", "10", "12", "14", "16", "18", "24" };
@@ -321,14 +142,7 @@ class FontSelectorDialog extends EnhancedDialog
 
 		content.add(BorderLayout.NORTH,listPanel);
 
-		preview = new JLabel(jEdit.getProperty("font-selector.long-text")) {
-			public void paintComponent(Graphics g)
-			{
-				if(fontSelector != null)
-					fontSelector.setAntiAliasEnabled(g);
-				super.paintComponent(g);
-			}
-		};
+		preview = new JLabel(jEdit.getProperty("font-selector.long-text"));
 		preview.setBorder(new TitledBorder(jEdit.getProperty(
 			"font-selector.preview")));
 
@@ -361,36 +175,94 @@ class FontSelectorDialog extends EnhancedDialog
 		content.add(BorderLayout.SOUTH,buttons);
 
 		pack();
-		setLocationRelativeTo(getParent());
-		setVisible(true);
-	} //}}}
+		setLocationRelativeTo(JOptionPane.getFrameForComponent(comp));
+		show();
+	}
 
-	//{{{ getFontList() method
-	private String[] getFontList()
+	public void ok()
 	{
-		String[] nameArray = GraphicsEnvironment
-			.getLocalGraphicsEnvironment()
-			.getAvailableFontFamilyNames();
-		Vector nameVector = new Vector(nameArray.length);
+		isOK = true;
+		dispose();
+	}
 
-		for(int i = 0, j; i < nameArray.length; i++)
+	public void cancel()
+	{
+		dispose();
+	}
+
+	public Font getSelectedFont()
+	{
+		if(!isOK)
+			return null;
+
+		int size;
+		try
 		{
-			for(j = 0; j < HIDEFONTS.length; j++)
-			{
-				if(nameArray[i].indexOf(HIDEFONTS[j]) >= 0)
-					break;
-			}
-
-			if(j == HIDEFONTS.length)
-				nameVector.addElement(nameArray[i]);
+			size = Integer.parseInt(sizeField.getText());
+		}
+		catch(Exception e)
+		{
+			size = 14;
 		}
 
-		String[] _array = new String[nameVector.size()];
-		nameVector.copyInto(_array);
-		return _array;
-	} //}}}
+		return new Font(familyField.getText(),styleList
+			.getSelectedIndex(),size);
+	}
 
-	//{{{ createTextFieldAndListPanel() method
+	// private members
+	private boolean isOK;
+	private JTextField familyField;
+	private JList familyList;
+	private JTextField sizeField;
+	private JList sizeList;
+	private JTextField styleField;
+	private JList styleList;
+	private JLabel preview;
+	private JButton ok;
+	private JButton cancel;
+
+	/**
+	 * For some reason the default Java fonts show up in the
+	 * list with .bold, .bolditalic, and .italic extensions.
+	 */
+	private static final String[] HIDEFONTS = {
+		".bold",
+		".italic"
+	};
+
+	private String[] getFontList()
+	{
+		try
+		{
+			Class GEClass = Class.forName("java.awt.GraphicsEnvironment");
+			Object GEInstance = GEClass.getMethod("getLocalGraphicsEnvironment", null).invoke(null, null);
+
+			String[] nameArray = (String[])
+			GEClass.getMethod("getAvailableFontFamilyNames", null).invoke(GEInstance, null);
+			Vector nameVector = new Vector(nameArray.length);
+
+			for(int i = 0, j; i < nameArray.length; i++)
+			{
+				for(j = 0; j < HIDEFONTS.length; j++)
+				{
+					if(nameArray[i].indexOf(HIDEFONTS[j]) >= 0)
+						break;
+				}
+
+				if(j == HIDEFONTS.length)
+					nameVector.addElement(nameArray[i]);
+			}
+
+			String[] _array = new String[nameVector.size()];
+			nameVector.copyInto(_array);
+			return _array;
+		}
+		catch(Exception ex)
+		{
+			return Toolkit.getDefaultToolkit().getFontList();
+		}
+	}
+
 	private JPanel createTextFieldAndListPanel(String label,
 		JTextField textField, JList list)
 	{
@@ -429,9 +301,8 @@ class FontSelectorDialog extends EnhancedDialog
 		panel.add(scroller);
 
 		return panel;
-	} //}}}
+	}
 
-	//{{{ updatePreview() method
 	private void updatePreview()
 	{
 		String family = familyField.getText();
@@ -442,16 +313,13 @@ class FontSelectorDialog extends EnhancedDialog
 		}
 		catch(Exception e)
 		{
-			size = 12;
+			size = 14;
 		}
 		int style = styleList.getSelectedIndex();
 
 		preview.setFont(new Font(family,style,size));
-	} //}}}
+	}
 
-	//}}}
-
-	//{{{ ActionHandler class
 	class ActionHandler implements ActionListener
 	{
 		public void actionPerformed(ActionEvent evt)
@@ -461,9 +329,8 @@ class FontSelectorDialog extends EnhancedDialog
 			else if(evt.getSource() == cancel)
 				cancel();
 		}
-	} //}}}
+	}
 
-	//{{{ ListHandler class
 	class ListHandler implements ListSelectionListener
 	{
 		public void valueChanged(ListSelectionEvent evt)
@@ -490,5 +357,5 @@ class FontSelectorDialog extends EnhancedDialog
 
 			updatePreview();
 		}
-	} //}}}
-} //}}}
+	}
+}

@@ -1,8 +1,5 @@
 /*
  * EditBus.java - The EditBus
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 1999 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
@@ -26,66 +23,35 @@ import java.util.*;
 import org.gjt.sp.util.Log;
 
 /**
- * jEdit's global event notification mechanism.<p>
+ * The EditBus provides a way for plugins to communicate without knowing
+ * too much about each other's internals.<p>
  *
- * Plugins register with the EditBus to receive messages reflecting
- * changes in the application's state, including changes in buffers,
- * views and edit panes, changes in the set of properties maintained
- * by the application, and the closing of the application.<p>
- *
- * The EditBus maintains a list of objects that have requested to receive
- * messages. When a message is sent using this class, all registered
- * components receive it in turn. Classes for objects that subscribe to
- * the EditBus must implement the {@link EBComponent} interface, which
- * defines the single method {@link EBComponent#handleMessage(EBMessage)}.<p>
- *
- * A plugin core class that extends the
- * {@link EBPlugin} abstract class (and whose name ends with
- * <code>Plugin</code> for identification purposes) will automatically be
- * added to the EditBus during jEdit's startup routine.  Any other
- * class - for example, a dockable window that needs to receive
- * notification of buffer changes - must perform its own registration by calling
- * {@link #addToBus(EBComponent)} during its initialization.
- * A convenient place to register in a class derived from <code>JComponent</code>
- * would be in an implementation of the <code>JComponent</code> method
- * <code>addNotify()</code>.<p>
- *
- * Message types sent by jEdit can be found in the
- * {@link org.gjt.sp.jedit.msg} package.<p>
- *
- * Plugins can also send their own messages - any object can send a message to
- * the EditBus by calling the static method {@link #send(EBMessage)}.
- * Most plugins, however, only concern themselves with receiving, not
- * sending, messages.
- *
- * @see org.gjt.sp.jedit.EBComponent
- * @see org.gjt.sp.jedit.EBMessage
+ * The EditBus is similar to the data bus inside a computer; there are
+ * a number of components connected, and all components can send messages
+ * to the bus. When a message is sent, all other components receive it,
+ * and do something appropriate (or simply ignore it).
  *
  * @author Slava Pestov
- * @author John Gellene (API documentation)
  * @version $Id$
  *
  * @since jEdit 2.2pre6
  */
 public class EditBus
 {
-	//{{{ addToBus() method
 	/**
 	 * Adds a component to the bus. It will receive all messages sent
 	 * on the bus.
-	 *
 	 * @param comp The component to add
 	 */
 	public static void addToBus(EBComponent comp)
 	{
 		synchronized(components)
 		{
-			components.add(comp);
+			components.addElement(comp);
 			copyComponents = null;
 		}
-	} //}}}
+	}
 
-	//{{{ removeFromBus() method
 	/**
 	 * Removes a component from the bus.
 	 * @param comp The component to remove
@@ -94,12 +60,11 @@ public class EditBus
 	{
 		synchronized(components)
 		{
-			components.remove(comp);
+			components.removeElement(comp);
 			copyComponents = null;
 		}
-	} //}}}
+	}
 
-	//{{{ getComponents() method
 	/**
 	 * Returns an array of all components connected to the bus.
 	 */
@@ -109,16 +74,17 @@ public class EditBus
 		{
 			if (copyComponents == null)
 			{
-				copyComponents = (EBComponent[])components.toArray(
-					new EBComponent[components.size()]);
+				copyComponents = new EBComponent[components.size()];
+				components.copyInto(copyComponents);
 			}
 			return copyComponents;
 		}
-	} //}}}
+	}
 
-	//{{{ send() method
 	/**
-	 * Sends a message to all components on the bus in turn.
+	 * Sends a message to all components on the bus.
+	 * The message will be sent to all components in turn, with the
+	 * original sender receiving it last.
 	 * @param message The message
 	 */
 	public static void send(EBMessage message)
@@ -133,19 +99,9 @@ public class EditBus
 		{
 			try
 			{
-				EBComponent comp = comps[i];
-				if(Debug.EB_TIMER)
-				{
-					long start = System.currentTimeMillis();
-					comp.handleMessage(message);
-					long time = (System.currentTimeMillis() - start);
-					if(time != 0)
-					{
-						Log.log(Log.DEBUG,EditBus.class,comp + ": " + time + " ms");
-					}
-				}
-				else
-					comps[i].handleMessage(message);
+				comps[i].handleMessage(message);
+				if(message.isVetoed())
+					break;
 			}
 			catch(Throwable t)
 			{
@@ -154,13 +110,78 @@ public class EditBus
 				Log.log(Log.ERROR,EditBus.class,t);
 			}
 		}
-	} //}}}
+	}
 
-	//{{{ Private members
-	private static ArrayList components = new ArrayList();
+	/**
+	 * Returns a named list.
+	 * @param tag The list name
+	 */
+	public static Object[] getNamedList(Object tag)
+	{
+		Object[] list = (Object[])listArrays.get(tag);
+		if(list != null)
+			return list;
+
+		Vector listVector = (Vector)listVectors.get(tag);
+		if(listVector != null)
+		{
+			list = new Object[listVector.size()];
+			listVector.copyInto(list);
+			listArrays.put(tag,list);
+			return list;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Returns an enumeration of all named lists.
+	 * @param tag The list name
+	 */
+	public static Enumeration getNamedLists()
+	{
+		return listVectors.keys();
+	}
+
+	/**
+	 * Adds an entry to a named list.
+	 * @param tag The list name
+	 * @param entry The entry
+	 */
+	public static void addToNamedList(Object tag, Object entry)
+	{
+		Vector listVector = (Vector)listVectors.get(tag);
+		if(listVector == null)
+		{
+			listVector = new Vector();
+			listVectors.put(tag,listVector);
+		}
+
+		listVector.addElement(entry);
+		listArrays.remove(tag);
+	}
+
+	/**
+	 * Removes an entry from a named list.
+	 * @param tag The list name
+	 * @param entry The entry
+	 */
+	public static void removeFromNamedList(Object tag, Object entry)
+	{
+		Vector listVector = (Vector)listVectors.get(tag);
+		if(listVector == null)
+			return;
+
+		listVector.removeElement(entry);
+		listArrays.remove(tag);
+	}
+
+	// private members
+	private static Vector components = new Vector();
 	private static EBComponent[] copyComponents;
+	private static Hashtable listVectors = new Hashtable();
+	private static Hashtable listArrays = new Hashtable();
 
 	// can't create new instances
 	private EditBus() {}
-	//}}}
 }

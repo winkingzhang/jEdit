@@ -19,38 +19,46 @@
 
 package org.gjt.sp.jedit.pluginmgr;
 
+import com.microstar.xml.*;
 import java.io.*;
 import java.util.Stack;
-
-import org.xml.sax.Attributes;
-import org.xml.sax.InputSource;
-import org.xml.sax.helpers.DefaultHandler;
-
 import org.gjt.sp.util.Log;
-import org.gjt.sp.util.XMLUtilities;
 
-class PluginListHandler extends DefaultHandler
+class PluginListHandler extends HandlerBase
 {
 	PluginListHandler(PluginList pluginList, String path)
 	{
 		this.pluginList = pluginList;
 		this.path = path;
 		stateStack = new Stack();
-
-		author = new StringBuffer();
-		description = new StringBuffer();
-		pluginSetEntry = new StringBuffer();
-		download = new StringBuffer();
-		downloadSource = new StringBuffer();
 	}
 
-	public InputSource resolveEntity(String publicId, String systemId)
+	public Object resolveEntity(String publicId, String systemId)
 	{
-		return XMLUtilities.findEntity(systemId, "plugins.dtd", getClass());
+		if("plugins.dtd".equals(systemId))
+		{
+			try
+			{
+				return new BufferedReader(new InputStreamReader(
+					getClass().getResourceAsStream(
+					"/org/gjt/sp/jedit/pluginmgr/plugins.dtd")));
+			}
+			catch(Exception e)
+			{
+				Log.log(Log.ERROR,this,"Error while opening"
+					+ " plugins.dtd:");
+				Log.log(Log.ERROR,this,e);
+			}
+		}
+
+		return null;
 	}
 
 	public void attribute(String aname, String value, boolean isSpecified)
 	{
+		aname = (aname == null) ? null : aname.intern();
+		value = (value == null) ? null : value.intern();
+
 		if(aname == "NAME")
 			name = value;
 		else if(aname == "JAR")
@@ -69,116 +77,108 @@ class PluginListHandler extends DefaultHandler
 			depTo = value;
 		else if(aname == "PLUGIN")
 			depPlugin = value;
-		else if(aname == "SIZE")
-		{
-			size = Integer.parseInt(value);
-			if(size == 0)
-				Log.log(Log.WARNING,this,"SIZE = 0");
-		}
 	}
 
-	public void characters(char[] c, int off, int len)
+	public void doctypeDecl(String name, String publicId,
+		String systemId) throws Exception
+	{
+		if("PLUGINS".equals(name))
+			return;
+
+		Log.log(Log.ERROR,this,path + ": DOCTYPE must be PLUGINS");
+	}
+
+	public void charData(char[] c, int off, int len)
 	{
 		String tag = peekElement();
+		String text = new String(c, off, len);
 
-		if(tag.equals("DESCRIPTION"))
+		if(tag == "DESCRIPTION")
 		{
-			description.append(c, off, len);
+			description = text;
 		}
-		else if(tag.equals("PLUGIN_SET_ENTRY"))
-			pluginSetEntry.append(c, off, len);
-		else if(tag.equals("AUTHOR"))
+		else if(tag == "PLUGIN_SET_ENTRY")
+			pluginSetEntry = text;
+		else if(tag == "AUTHOR")
 		{
-			if(author.length() != 0)
-				author.append(", ");
-			author.append(c, off, len);
+			if(author != null && author.length() != 0)
+				author = author + ", " + text;
+			else
+				author = text;
 		}
-		else if(tag.equals("DOWNLOAD"))
-			download.append(c, off, len);
-		else if(tag.equals("DOWNLOAD_SOURCE"))
-			downloadSource.append(c, off, len);
+		else if(tag == "DOWNLOAD")
+			download = text;
+		else if(tag == "DOWNLOAD_SOURCE")
+			downloadSource = text;
 	}
 
-	public void startElement(String uri, String localName,
-							 String tag, Attributes attrs)
+	public void startElement(String tag)
 	{
-		for (int i = 0; i < attrs.getLength(); i++)
-		{
-			String aName = attrs.getQName(i);
-			String aValue = attrs.getValue(i);
-			attribute(aName, aValue, true);
-		}
-
-
 		tag = pushElement(tag);
 
-		if(tag.equals("PLUGIN_SET"))
+		if(tag == "PLUGIN_SET")
 		{
-			description.setLength(0);
+			description = null;
 			pluginSet = new PluginList.PluginSet();
-			pluginSet.name = name;
 		}
-		else if(tag.equals("PLUGIN"))
+		else if(tag == "PLUGIN")
 		{
-			description.setLength(0);
-			author.setLength(0);
+			description = null;
+			author = null;
 			branch = null;
 			plugin = new PluginList.Plugin();
 		}
-		else if(tag.equals("BRANCH"))
+		else if(tag == "BRANCH")
 		{
-			download.setLength(0);
+			download = null;
 			branch = new PluginList.Branch();
 		}
-		else if(tag.equals("DOWNLOAD"))
-			downloadSize = size;
-		else if(tag.equals("DOWNLOAD_SOURCE"))
-			downloadSourceSize = size;
 	}
 
-	public void endElement(String uri, String localName, String tag)
+	public void endElement(String tag)
 	{
+		if(tag == null)
+			return;
+		else
+			tag = tag.intern();
+
 		popElement();
 
-		if(tag.equals("PLUGIN_SET"))
+		if(tag == "PLUGIN_SET")
 		{
 			pluginList.addPluginSet(pluginSet);
 			pluginSet = null;
-			pluginSetEntry.setLength(0);
+			pluginSetEntry = null;
 		}
-		else if(tag.equals("PLUGIN_SET_ENTRY"))
+		else if(tag == "PLUGIN_SET_ENTRY")
 		{
-			pluginSet.plugins.addElement(pluginSetEntry.toString());
-			pluginSetEntry.setLength(0);
+			pluginSet.plugins.addElement(pluginSetEntry);
+			pluginSetEntry = null;
 		}
-		else if(tag.equals("PLUGIN"))
+		else if(tag == "PLUGIN")
 		{
 			plugin.jar = jar;
 			plugin.name = name;
-			plugin.author = author.toString();
-			plugin.description = description.toString();
+			plugin.author = author;
+			plugin.description = description;
 			pluginList.addPlugin(plugin);
 			jar = null;
 			name = null;
-			author.setLength(0);
-			description.setLength(0);
+			author = null;
 		}
-		else if(tag.equals("BRANCH"))
+		else if(tag == "BRANCH")
 		{
 			branch.version = version;
 			branch.date = date;
-			branch.download = download.toString();
-			branch.downloadSize = downloadSize;
-			branch.downloadSource = downloadSource.toString();
-			branch.downloadSourceSize = downloadSourceSize;
+			branch.download = download;
+			branch.downloadSource = downloadSource;
 			branch.obsolete = obsolete;
 			plugin.branches.addElement(branch);
 			version = null;
-			download.setLength(0);
-			downloadSource.setLength(0);
+			download = null;
 			obsolete = false;
 		}
-		else if(tag.equals("DEPEND"))
+		else if(tag == "DEPEND")
 		{
 			PluginList.Dependency dep = new PluginList.Dependency(
 				depWhat,depFrom,depTo,depPlugin);
@@ -214,34 +214,34 @@ class PluginListHandler extends DefaultHandler
 	private PluginList pluginList;
 
 	private PluginList.PluginSet pluginSet;
-	private StringBuffer pluginSetEntry;
+	private String pluginSetEntry;
 
 	private PluginList.Plugin plugin;
 	private String jar;
-	private StringBuffer author;
+	private String author;
 
 	private PluginList.Branch branch;
 	private boolean obsolete;
 	private String version;
 	private String date;
-	private StringBuffer download;
-	private int downloadSize;
-	private StringBuffer downloadSource;
-	private int downloadSourceSize;
-	private int size;
+	private String download;
+	private String downloadSource;
 	private String depWhat;
 	private String depFrom;
 	private String depTo;
 	private String depPlugin;
 
 	private String name;
-	private StringBuffer description;
+	private String description;
 
 	private Stack stateStack;
 
 	private String pushElement(String name)
 	{
+		name = (name == null) ? null : name.intern();
+
 		stateStack.push(name);
+
 		return name;
 	}
 

@@ -1,10 +1,13 @@
-<!-- jEdit 4.0 Macro Guide, (C) 2001, 2002 John Gellene                 -->
+<!-- jEdit 3.2 Macro Guide, (C) 2001 John Gellene                       -->
 <!-- jEdit buffer-local properties:                                     -->
 <!-- :indentSize=1:noTabs=yes:maxLineLen=72:tabSize=2:                  -->
-<!-- :xml.root=users-guide.xml:                                         -->
+
+<!-- Wed Jun 20 16:45:29 EDT 2001 @906 /Internet Time/                  -->
+
 <!-- This file contains an extended discussion of a                     -->
 <!-- dialog-based macro example "Add_Prefix_and_Suffix.bsh"             -->
-<!-- $Id$      -->
+
+<!-- Note: macro has been revised to accomodate Selection API in jEdit3.2 -->
 
 <chapter id="dialog-macro"><title>A Dialog-Based Macro</title>
  <para>
@@ -36,7 +39,7 @@ country</screen>
     <quote>suffix</quote> to be applied to each line; in this case, the prefix is
     <userinput>ourStringBuffer.append(</userinput> and the suffix is
     <userinput>);</userinput>. After selecting these lines and
-    running the macro, the resulting text would look like this:
+    running the macro, the the resulting text would look like this:
    </para>
 
 <screen>ourStringBuffer.append(profileString_1);
@@ -92,7 +95,7 @@ void prefixSuffixDialog()
     fieldPanel.add(suffixField);
     content.add(fieldPanel, <quote>Center</quote>);
 
-<anchor id="button-panel"/>    // add a panel containing the buttons (see <xref
+<anchor id="button-panel"/>    // add the buttons (see <xref
  linkend="explain-button-panel"/>)
     buttonPanel = new JPanel();
     buttonPanel.setLayout(new BoxLayout(buttonPanel,
@@ -146,12 +149,13 @@ void prefixSuffixDialog()
         suffix = suffixField.getText();
         if(prefix.length() == 0 &amp;&amp; suffix.length() == 0)
             return;
-        prefixField.addCurrentToHistory();
-        suffixField.addCurrentToHistory();
+        if(prefix.length() != 0)
+            prefixField.addCurrentToHistory();
+        if(suffix.length() != 0)
+            suffixField.addCurrentToHistory();
 
 <anchor id="jEdit-calls"/>        // text manipulation begins here using calls
         // to jEdit methods  (see <xref linkend="explain-jedit-calls"/>)
-        buffer.beginCompoundEdit();
         selectedLines = textArea.getSelectedLines();
         for(i = 0; i &lt; selectedLines.length; ++i)
         {
@@ -164,7 +168,6 @@ void prefixSuffixDialog()
             if(text == null) text = &quot;&quot;;
             textArea.setSelectedText(prefix + text + suffix);
         }
-        buffer.endCompoundEdit();
     }
 }
 
@@ -188,10 +191,10 @@ import javax.swing.border.*;</programlisting></informalexample>
     This macro makes use of classes in the
     <literal>javax.swing.border</literal> package, which is not
     automatically imported. As we mentioned
-    previously (see <xref linkend="first-example" />), jEdit's implementation of
+    previously (see <xref linkend="first-example"/>), jEdit's implementation of
     BeanShell causes a number of classes to be automatically imported. Classes
-    that are not automatically imported must be identified by a full qualified
-    name or be the subject of an <function>import</function> statement.
+    that are not automatically imported must be named by a full qualified name or be
+    the subject of an <function>import</function> statement.
   </para>
 
 </sect2>
@@ -220,7 +223,7 @@ dialog.setContentPane(content);</programlisting></informalexample>
     keyword and call a <glossterm>constructor</glossterm> function. The
     constructor we use takes three parameters: the owner of the new dialog,
     the title to be displayed in the dialog frame, and a
-    <classname>boolean</classname> parameter (<constant>true</constant> or
+    <type>boolean</type> parameter (<constant>true</constant> or
     <constant>false</constant>) that specifies whether the dialog will be
     modal or non-modal. We define the variable <varname>title</varname>
     using a string literal, then use it immediately in the
@@ -248,10 +251,10 @@ dialog.setContentPane(content);</programlisting></informalexample>
 
   <para>
     A <classname>BorderLayout</classname> is one of the simpler layout
-    schemes available for container objects like <classname>JPanel</classname>.
+    schemes available for Java Swing objects.
     A <classname>BorderLayout</classname>
     divides the container into five sections: <quote>North</quote>,
-    <quote>South</quote>, <quote>East</quote>, <quote>West</quote> and
+    <quote>South</quote>, <quote></quote>East, <quote>West</quote> and
     <quote>Center</quote>. Components are added to the layout using the
     container's <function>add</function> method, specifying the component to
     be added and the section to which it is assigned. Building a
@@ -280,43 +283,37 @@ content.add(fieldPanel, <quote>Center</quote>);</programlisting></informalexampl
 
   <para>
     Next we shall create a smaller panel containing two fields for
-    entering the prefix and suffix text and two labels identifying the
+    entering the prefix and suffix text and two labels identfying the
     input fields.
   </para>
 
   <para>
-    For the text fields, we will use jEdit's
-    <ulink
-		url="../api/org/gjt/sp/jedit/gui/HistoryTextField.html">HistoryTextField</ulink>
+    For the text fields, we will use jEdit's <classname>HistoryTextField</classname>
     class. It is derived from the Java Swing class
     <classname>JTextField</classname>. This class offers the enhancement of a stored
-    list of prior values used as text input. When the component has input focus, the
-    up and down keys scroll through the prior values for the variable.
-    <!-- The prior values are stored in a file named
+    list of prior values used as text input. The up and down keys scroll through the
+    prior values for the variable. <!-- The prior values are stored in a file named
     <filename>history</filename> located in the directory in which jEdit stores
     various user data. -->
   </para>
 
   <para>
-    To create the <ulink
-		url="../api/org/gjt/sp/jedit/gui/HistoryTextField.html">HistoryTextField</ulink> objects we use a
+    To create the <classname>HistoryTextField</classname> objects we use a
     constructor method that takes a single parameter: the name of the tag
     under which history values will be stored. Here we choose names that are
     not likely to conflict with existing jEdit history items.
   </para>
 
   <para>
-    The labels that accompany the text fields are
-    <classname>JLabel</classname> objects from the Java Swing
-    package. The constructor we use for both labels takes the label text
-    as a single <classname>String</classname> parameter.
+    The labels are <classname>JLabel</classname> objects from the Java Swing
+    package. The constructor we use takes the label text as a single
+    <classname>String</classname> parameter.
   </para>
 
   <para>
     We wish to arrange these four components from top to bottom,
     one after the other. To achieve that, we use a
-    <classname>JPanel</classname> container object named
-    <varname>fieldPanel</varname> that
+    <classname>JPanel</classname> object named <varname>fieldPanel</varname> that
     will be nested inside the dialog's content pane that we have
     already created. In the constructor for <varname>fieldPanel</varname>,
     we assign a new <classname>GridLayout</classname> with the indicated
@@ -352,21 +349,18 @@ buttonPanel.add(Box.createGlue());
 content.add(buttonPanel, <quote>South</quote>);</programlisting></informalexample>
 
   <para>
-    To create the dialog's buttons, we follow repeat the <quote>nested container</quote>
-    pattern we used in creating the text fields.
-    First, we create a new, nested panel. This time we use a <classname>BoxLayout</classname>
-    that places components either in a single row or
-    column, depending on the parameter passed to its constructor. This layout object
-    is more flexible than a <classname>GridLayout</classname> in that variable spacing
-    between elements can be specified easily. We put an
+    Creating the buttons repeats the pattern we used in creating the text fields.
+    First, we create a new, nested panel with a <classname>BoxLayout</classname>. A
+    <classname>BoxLayout</classname> places components either in a single row or
+    column, depending on the parameter passed to its constructor. We put an
     <classname>EmptyBorder</classname> in the new panel to set margins for placing
     the buttons. Then we create the buttons, using a <classname>JButton</classname>
     constructor that specifies the button text. After setting the size of the
     <guilabel>OK</guilabel> button to equal the size of the
     <guilabel>Cancel</guilabel> button, we designate the <guilabel>OK</guilabel>
     button as the default button in the dialog. This causes the
-    <guilabel>OK</guilabel> button to be outlined when the dialog if first displayed.
-    Finally, we place the buttons side by side with a 6 pixel gap between them (for aesthetic
+    <guilabel>OK</guilabel> button to be outlined as the default button. Finally, we
+    place the button side by side with a 6 pixel gap between them (for aesthetic
     reasons), and place the completed <varname>buttonPanel</varname> in the
     <quote>South</quote> section of the dialog's content pane.
   </para>
@@ -386,9 +380,7 @@ suffixField.addActionListener(this);</programlisting></informalexample>
     In order to specify the action to be taken upon clicking a
     button or pressing the <keycap>Enter</keycap> key, we must register
     an <classname>ActionListener</classname> for each of the four active
-    components of the dialog - the two
-    <ulink
-		url="../api/org/gjt/sp/jedit/HistoryTextField.html">HistoryTextField</ulink>
+    components of the dialog - the two <classname>HistoryTextField</classname>
     components and the two buttons. In Java, an
     <classname>ActionListener</classname> is an <glossterm>interface</glossterm> - an
     abstract specification for a derived class to implement. The
@@ -406,10 +398,10 @@ suffixField.addActionListener(this);</programlisting></informalexample>
   <para>
     BeanShell does not permit a script to create derived classes.
     However, BeanShell offers a useful substitute: a method can be
-    used as a scripted object that can include nested methods implementing a
+    used as a scripted object that can implement methods of a
     number of Java interfaces. The method
     <function>prefixSuffixDialog()</function> that we are writing can thus be
-    treated as an <classname>ActionListener</classname> object. To accomplish this, we
+    treated as an <function>ActionListener</function>. To accomplish this, we
     call <function>addActionListener()</function> on each of the four
     components specifying <varname>this</varname> as the
     <classname>ActionListener</classname>. We still need to implement the
@@ -469,7 +461,7 @@ void actionPerformed(e)
     <classname>ActionListener</classname> interface. It looks at the source
     of the <classname>ActionEvent</classname>, determined by a call to
     <function>getSource()</function>. What we do with this return value is
-    straightforward: if the source is not the <guibutton>Cancel</guibutton> button, we
+    straighforward: if the source is not the <guibutton>Cancel</guibutton> button, we
     call the <function>processText()</function> method to insert the prefix
     and suffix text. Then the dialog is closed by calling its
     <function>dispose()</function> method.
@@ -478,9 +470,13 @@ void actionPerformed(e)
   <para>
     The ability to implement interfaces like
     <classname>ActionListener</classname> inside a BeanShell script is
-    one of the more powerful features of the BeanShell package.
-    this technique is discussed in
-    the next chapter; see <xref linkend="macro-tips-BeanShell-class" />.
+    one of the more powerful features of the BeanShell package. With an
+    <classname>ActionListener</classname> interface, which has only a
+    single method, implementation is simple.  When using other
+    interfaces with multiple methods, however, there are some details to
+    deal with that will vary depending on the version of the Java
+    platform that you are running.  These techniques are discussed in
+    the next chapter; see <xref linkend="macro-tips-BeanShell-interface" />.
   </para>
 
 </sect2>
@@ -496,8 +492,10 @@ void processText()
     suffix = suffixField.getText();
     if(prefix.length() == 0 &amp;&amp; suffix.length() == 0)
         return;
-    prefixField.addCurrentToHistory();
-    suffixField.addCurrentToHistory();</programlisting></informalexample>
+    if(prefix.length() != 0)
+        prefixField.addCurrentToHistory();
+    if(suffix.length() != 0)
+        suffixField.addCurrentToHistory();</programlisting></informalexample>
 
   <para>
     The method <function>processText()</function> does the work of our
@@ -506,10 +504,6 @@ void processText()
     empty, there is nothing to do, so the method returns. If there is
     input, any text in the field is added to that field's stored
     history list by calling <function>addCurrentToHistory()</function>.
-    We do not need to test the <varname>prefixField</varname> or
-    <varname>suffixField</varname> controls for <constant>null</constant>
-    or empty values because <function>addCurrentToHistory()</function>
-    does that internally.
   </para>
 
 </sect2>
@@ -519,7 +513,6 @@ void processText()
 
 <informalexample><programlisting>    // text manipulation begins here using calls
     // to jEdit methods
-    buffer.beginCompoundEdit();
     selectedLines = textArea.getSelectedLines();
     for(i = 0; i &lt; selectedLines.length; ++i)
     {
@@ -532,7 +525,6 @@ void processText()
         if(text == null) text = &quot;&quot;;
         textArea.setSelectedText(prefix + text + suffix);
     }
-    buffer.endCompoundEdit();
 }</programlisting></informalexample>
 
   <para>
@@ -572,8 +564,7 @@ void processText()
 
     <para>
       The <function>goTo...</function> methods in
-      <ulink
-		url="../api/org/gjt/sp/jedit/textarea/JEditTextArea.html">JEditTextArea</ulink> take a single parameter which
+      <classname>JEditTextArea</classname> take a single parameter which
       tells jEdit whether the text between the current caret position and
       the desired position should be selected. Here, we call
       <function>textArea.goToStartOfWhiteSpace(false)</function> so that
@@ -611,23 +602,6 @@ void processText()
   </listitem>
 
 </itemizedlist>
-
-<sidebar><title>Compound edits</title>
- <para>
-  Note the <function>beginCompoundEdit()</function> and
-  <function>endCompoundEdit()</function> calls. These ensure that all edits
-  performed between the two calls can be undone in one step. Normally,
-  jEdit automatically wraps a macro call in these methods; however if
-  the macro shows a non-modal dialog box, as far as jEdit is concerned
-  the macro has finished executing by the time the dialog is shown,
-  since control returns to the event dispatch thread.
- </para>
- <para>
-  If you do not understand this, don't worry; just keep it in mind if
-  your macro needs to show a non-modal dialog box for some reason;
-  Most macros won't.
- </para>
-</sidebar>
 
   <!-- <para>
     The loop routine is bracketed by calls to

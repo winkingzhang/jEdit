@@ -1,9 +1,6 @@
 /*
  * VFSManager.java - Main class of virtual filesystem
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 2000, 2005 Slava Pestov
+ * Copyright (C) 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,77 +19,41 @@
 
 package org.gjt.sp.jedit.io;
 
-//{{{ Imports
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-import java.awt.Component;
-import java.awt.Frame;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Hashtable;
-import java.util.LinkedList;
-import java.util.List;
+import javax.swing.SwingUtilities;
+import java.awt.Component;
 import java.util.Vector;
-import org.gjt.sp.jedit.gui.ErrorListDialog;
 import org.gjt.sp.jedit.msg.VFSUpdate;
 import org.gjt.sp.jedit.*;
 import org.gjt.sp.util.Log;
 import org.gjt.sp.util.WorkThreadPool;
-import org.gjt.sp.util.StandardUtilities;
-//}}}
 
 /**
  * jEdit's virtual filesystem allows it to transparently edit files
  * stored elsewhere than the local filesystem, for example on an FTP
- * site. See the {@link VFS} class for implementation details.<p>
- *
- * Note that most of the jEdit API is not thread-safe, so special care
- * must be taken when making jEdit API calls. Also, it is not safe to
- * call <code>SwingUtilities.invokeAndWait()</code> from a work request;
- * it can cause a deadlock if the given runnable then later calls
- * {@link #waitForRequests()}.
- *
+ * site.
  * @author Slava Pestov
  * @version $Id$
  */
 public class VFSManager
 {
 	/**
-	 * The service type. See {@link org.gjt.sp.jedit.ServiceManager}.
-	 * @since jEdit 4.2pre1
-	 */
-	public static final String SERVICE = "org.gjt.sp.jedit.io.VFS";
-
-	//{{{ init() method
-	/**
-	 * Do not call.
-	 */
-	public static void init()
-	{
-		int count = jEdit.getIntegerProperty("ioThreadCount",4);
-		ioThreadPool = new WorkThreadPool("jEdit I/O",count);
-		JARClassLoader classLoader = new JARClassLoader();
-		for(int i = 0; i < ioThreadPool.getThreadCount(); i++)
-		{
-			ioThreadPool.getThread(i).setContextClassLoader(
-				classLoader);
-		}
-	} //}}}
-
-	//{{{ start() method
-	/**
 	 * Do not call.
 	 */
 	public static void start()
 	{
 		ioThreadPool.start();
-	} //}}}
+	}
 
-	//{{{ VFS methods
+	/**
+	 * Returns the I/O thread pool.
+	 */
+	public static WorkThreadPool getIOThreadPool()
+	{
+		return ioThreadPool;
+	}
 
-	//{{{ getFileVFS() method
 	/**
 	 * Returns the local filesystem VFS.
 	 * @since jEdit 2.5pre1
@@ -100,9 +61,8 @@ public class VFSManager
 	public static VFS getFileVFS()
 	{
 		return fileVFS;
-	} //}}}
+	}
 
-	//{{{ getUrlVFS() method
 	/**
 	 * Returns the URL VFS.
 	 * @since jEdit 2.5pre1
@@ -110,23 +70,18 @@ public class VFSManager
 	public static VFS getUrlVFS()
 	{
 		return urlVFS;
-	} //}}}
+	}
 
-	//{{{ getVFSByName() method
 	/**
-	 * @deprecated Use <code>getVFSForProtocol()</code> instead.
+	 * Returns the VFS for the specified name.
+	 * @param name The VFS name
+	 * @since jEdit 2.6pre4
 	 */
 	public static VFS getVFSByName(String name)
 	{
-		// in new api, protocol always equals name
-		VFS vfs = (VFS)ServiceManager.getService(SERVICE,name);
-		if(vfs == null)
-			return (VFS)vfsHash.get(name);
-		else
-			return vfs;
-	} //}}}
+		return (VFS)vfsHash.get(name);
+	}
 
-	//{{{ getVFSForProtocol() method
 	/**
 	 * Returns the VFS for the specified protocol.
 	 * @param protocol The protocol
@@ -138,18 +93,14 @@ public class VFSManager
 			return fileVFS;
 		else
 		{
-			VFS vfs = (VFS)ServiceManager.getService(SERVICE,protocol);
-			if(vfs == null)
-				vfs = (VFS)protocolHash.get(protocol);
-
+			VFS vfs = (VFS)protocolHash.get(protocol);
 			if(vfs != null)
 				return vfs;
 			else
 				return urlVFS;
 		}
-	} //}}}
+	}
 
-	//{{{ getVFSForPath() method
 	/**
 	 * Returns the VFS for the specified path.
 	 * @param path The path
@@ -161,12 +112,13 @@ public class VFSManager
 			return getVFSForProtocol(MiscUtilities.getProtocolOfURL(path));
 		else
 			return fileVFS;
-	} //}}}
+	}
 
-	//{{{ registerVFS() method
 	/**
-	 * @deprecated Write a <code>services.xml</code> file instead;
-	 * see {@link org.gjt.sp.jedit.ServiceManager}.
+	 * Registers a virtual filesystem.
+	 * @param protocol The protocol
+	 * @param vfs The VFS
+	 * @since jEdit 2.5pre1
 	 */
 	public static void registerVFS(String protocol, VFS vfs)
 	{
@@ -175,56 +127,17 @@ public class VFSManager
 			+ protocol + " protocol");
 		vfsHash.put(vfs.getName(),vfs);
 		protocolHash.put(protocol,vfs);
-	} //}}}
+	}
 
-	//{{{ getFilesystems() method
 	/**
-	 * @deprecated Use <code>getVFSs()</code> instead.
+	 * Returns an enumeration of all registered filesystems.
+	 * @since jEdit 2.5pre1
 	 */
 	public static Enumeration getFilesystems()
 	{
 		return vfsHash.elements();
-	} //}}}
+	}
 
-	//{{{ getVFSs() method
-	/**
-	 * Returns a list of all registered filesystems.
-	 * @since jEdit 4.2pre1
-	 */
-	public static String[] getVFSs()
-	{
-		// the sooner ppl move to the new api, the less we'll need
-		// crap like this
-		List returnValue = new LinkedList();
-		String[] newAPI = ServiceManager.getServiceNames(SERVICE);
-		if(newAPI != null)
-		{
-			for(int i = 0; i < newAPI.length; i++)
-			{
-				returnValue.add(newAPI[i]);
-			}
-		}
-		Enumeration oldAPI = vfsHash.keys();
-		while(oldAPI.hasMoreElements())
-			returnValue.add(oldAPI.nextElement());
-		return (String[])returnValue.toArray(new String[
-			returnValue.size()]);
-	} //}}}
-
-	//}}}
-
-	//{{{ I/O request methods
-
-	//{{{ getIOThreadPool() method
-	/**
-	 * Returns the I/O thread pool.
-	 */
-	public static WorkThreadPool getIOThreadPool()
-	{
-		return ioThreadPool;
-	} //}}}
-
-	//{{{ waitForRequests() method
 	/**
 	 * Returns when all pending requests are complete.
 	 * @since jEdit 2.5pre1
@@ -232,27 +145,24 @@ public class VFSManager
 	public static void waitForRequests()
 	{
 		ioThreadPool.waitForRequests();
-	} //}}}
+	}
 
-	//{{{ errorOccurred() method
 	/**
 	 * Returns if the last request caused an error.
 	 */
 	public static boolean errorOccurred()
 	{
 		return error;
-	} //}}}
+	}
 
-	//{{{ getRequestCount() method
 	/**
 	 * Returns the number of pending I/O requests.
 	 */
 	public static int getRequestCount()
 	{
 		return ioThreadPool.getRequestCount();
-	} //}}}
+	}
 
-	//{{{ runInAWTThread() method
 	/**
 	 * Executes the specified runnable in the AWT thread once all
 	 * pending I/O requests are complete.
@@ -261,9 +171,8 @@ public class VFSManager
 	public static void runInAWTThread(Runnable run)
 	{
 		ioThreadPool.addWorkRequest(run,true);
-	} //}}}
+	}
 
-	//{{{ runInWorkThread() method
 	/**
 	 * Executes the specified runnable in one of the I/O threads.
 	 * @since jEdit 2.6pre2
@@ -271,24 +180,12 @@ public class VFSManager
 	public static void runInWorkThread(Runnable run)
 	{
 		ioThreadPool.addWorkRequest(run,false);
-	} //}}}
+	}
 
-	//}}}
-
-	//{{{ error() method
 	/**
-	 * Handle an I/O error.
-	 * @since jEdit 4.3pre3
-	 */
-	public static void error(IOException e, String path, Component comp)
-	{
-		Log.log(Log.ERROR,VFSManager.class,e);
-		VFSManager.error(comp,path,"ioerror",new String[] { e.toString() });
-	} //}}}
-
-	//{{{ error() method
-	/**
-	 * @deprecated Call the other <code>error()</code> method instead.
+	 * For use by VFS implementations and IO requests. Displays the
+	 * specified error in the AWT thread.
+	 * @since jEdit 2.6pre1
 	 */
 	public static void error(final Component comp, final String error, final Object[] args)
 	{
@@ -319,59 +216,8 @@ public class VFSManager
 					GUIUtilities.error(comp,error,args);
 			}
 		});
-	} //}}}
+	}
 
-	//{{{ error() method
-	/**
-	 * Reports an I/O error.
-	 *
-	 * @param comp The component
-	 * @param path The path name that caused the error
-	 * @param messageProp The error message property name
-	 * @param args Positional parameters
-	 * @since jEdit 4.0pre3
-	 */
-	public static void error(Component comp,
-		final String path,
-		String messageProp,
-		Object[] args)
-	{
-		final Frame frame = JOptionPane.getFrameForComponent(comp);
-
-		synchronized(errorLock)
-		{
-			error = true;
-
-			errors.addElement(new ErrorListDialog.ErrorEntry(
-				path,messageProp,args));
-
-			if(errors.size() == 1)
-			{
-				
-
-				VFSManager.runInAWTThread(new Runnable()
-				{
-					public void run()
-					{
-						String caption = jEdit.getProperty(
-							"ioerror.caption" + (errors.size() == 1
-							? "-1" : ""),new Integer[] {
-							new Integer(errors.size()) });
-						new ErrorListDialog(
-							frame.isShowing()
-							? frame
-							: jEdit.getFirstView(),
-							jEdit.getProperty("ioerror.title"),
-							caption,errors,false);
-						errors.removeAllElements();
-						error = false;
-					}
-				});
-			}
-		}
-	} //}}}
-
-	//{{{ sendVFSUpdate() method
 	/**
 	 * Sends a VFS update message.
 	 * @param vfs The VFS
@@ -399,7 +245,7 @@ public class VFSManager
 				for(int i = 0; i < vfsUpdates.size(); i++)
 				{
 					VFSUpdate msg = (VFSUpdate)vfsUpdates
-						.get(i);
+						.elementAt(i);
 					if(msg.getPath().equals(path))
 					{
 						// don't send two updates
@@ -408,7 +254,7 @@ public class VFSManager
 					}
 				}
 
-				vfsUpdates.add(new VFSUpdate(path));
+				vfsUpdates.addElement(new VFSUpdate(path));
 
 				if(vfsUpdates.size() == 1)
 				{
@@ -419,61 +265,102 @@ public class VFSManager
 				}
 			}
 		}
-	} //}}}
+	}
 
-	//{{{ SendVFSUpdatesSafely class
 	static class SendVFSUpdatesSafely implements Runnable
 	{
 		public void run()
 		{
 			synchronized(vfsUpdateLock)
 			{
-				// the vfs browser has what you might call
-				// a design flaw, it doesn't update properly
-				// unless the vfs update for a parent arrives
-				// before any updates for the children. sorting
-				// the list alphanumerically guarantees this.
-				Collections.sort(vfsUpdates,
-					new StandardUtilities.StringCompare()
-				);
 				for(int i = 0; i < vfsUpdates.size(); i++)
 				{
-					EditBus.send((VFSUpdate)vfsUpdates.get(i));
+					EditBus.send((VFSUpdate)vfsUpdates.elementAt(i));
 				}
 
-				vfsUpdates.clear();
+				vfsUpdates.removeAllElements();
 			}
 		}
-	} //}}}
+	}
 
-	//{{{ Private members
-
-	//{{{ Static variables
+	// private members
 	private static WorkThreadPool ioThreadPool;
 	private static VFS fileVFS;
 	private static VFS urlVFS;
 	private static Hashtable vfsHash;
 	private static Hashtable protocolHash;
 	private static boolean error;
-	private static Object errorLock;
-	private static Vector errors;
 	private static Object vfsUpdateLock;
-	private static List vfsUpdates;
-	//}}}
+	private static Vector vfsUpdates;
 
-	//{{{ Class initializer
 	static
 	{
-		errorLock = new Object();
-		errors = new Vector();
+		int count;
+		try
+		{
+			count = Integer.parseInt(jEdit.getProperty("ioThreadCount"));
+		}
+		catch(NumberFormatException nf)
+		{
+			count = 4;
+		}
+		ioThreadPool = new WorkThreadPool("jEdit I/O",count);
 		fileVFS = new FileVFS();
 		urlVFS = new UrlVFS();
 		vfsHash = new Hashtable();
 		protocolHash = new Hashtable();
 		vfsUpdateLock = new Object();
-		vfsUpdates = new ArrayList(10);
-	} //}}}
+		vfsUpdates = new Vector();
+		registerVFS(FavoritesVFS.PROTOCOL,new FavoritesVFS());
+		registerVFS(FileRootsVFS.PROTOCOL,new FileRootsVFS());
+	}
 
 	private VFSManager() {}
-	//}}}
 }
+
+/*
+ * Change Log:
+ * $Log$
+ * Revision 1.1  2001/09/02 05:38:16  spestov
+ * Initial revision
+ *
+ * Revision 1.23  2001/03/01 11:03:27  sp
+ * Improved folding, vfs bug fix
+ *
+ * Revision 1.22  2000/11/11 02:59:31  sp
+ * FTP support moved out of the core into a plugin
+ *
+ * Revision 1.21  2000/08/31 02:54:00  sp
+ * Improved activity log, bug fixes
+ *
+ * Revision 1.20  2000/08/29 07:47:13  sp
+ * Improved complete word, type-select in VFS browser, bug fixes
+ *
+ * Revision 1.19  2000/08/27 02:06:52  sp
+ * Filter combo box changed to a text field in VFS browser, passive mode FTP toggle
+ *
+ * Revision 1.18  2000/08/20 07:29:31  sp
+ * I/O and VFS browser improvements
+ *
+ * Revision 1.17  2000/08/16 12:14:29  sp
+ * Passwords are now saved, bug fixes, documentation updates
+ *
+ * Revision 1.16  2000/08/03 07:43:42  sp
+ * Favorites added to browser, lots of other stuff too
+ *
+ * Revision 1.15  2000/07/29 12:24:08  sp
+ * More VFS work, VFS browser started
+ *
+ * Revision 1.14  2000/07/26 07:48:45  sp
+ * stuff
+ *
+ * Revision 1.13  2000/07/22 03:27:03  sp
+ * threaded I/O improved, autosave rewrite started
+ *
+ * Revision 1.12  2000/07/21 10:23:49  sp
+ * Multiple work threads
+ *
+ * Revision 1.11  2000/07/19 11:45:18  sp
+ * I/O requests can be aborted now
+ *
+ */

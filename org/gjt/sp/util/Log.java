@@ -1,9 +1,6 @@
 /*
  * Log.java - A class for logging events
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1999, 2003 Slava Pestov
+ * Copyright (C) 1999, 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,30 +19,22 @@
 
 package org.gjt.sp.util;
 
+import javax.swing.text.*;
 import java.io.*;
-import java.util.*;
-import javax.swing.*;
-import javax.swing.event.*;
+import java.util.StringTokenizer;
 
 /**
- * This class provides methods for logging events. In terms of functionality,
- * it is somewhere in between <code>System.out.println()</code> and
- * full-blown logging packages such as log4j.<p>
- *
- * All events are logged to an in-memory buffer and optionally a stream,
+ * This class provides methods for logging events. It has the same
+ * purpose as System.out.println() and such, but more powerful.
+ * All events are logged to a Swing document and optionally a stream,
  * and those with a high urgency (warnings and errors) are also printed
- * to standard output.<p>
- *
- * Logging of exception tracebacks is supported.<p>
- *
- * This class can also optionally redirect standard output and error to the log.
- *
+ * to the standard error stream. This class can also optionally redirect
+ * standard output and error to the log.
  * @author Slava Pestov
  * @version $Id$
  */
 public class Log
 {
-	//{{{ Constants
 	/**
 	 * The maximum number of log messages that will be kept in memory.
 	 * @since jEdit 2.6pre5
@@ -86,15 +75,14 @@ public class Log
 	 * @since jEdit 2.2pre2
 	 */
 	public static final int ERROR = 9;
-	//}}}
 
-	//{{{ init() method
 	/**
 	 * Initializes the log.
 	 * @param stdio If true, standard output and error will be
 	 * sent to the log
 	 * @param level Messages with this log level or higher will
 	 * be printed to the system console
+	 * @param stream The stream to save log data to
 	 * @since jEdit 3.2pre4
 	 */
 	public static void init(boolean stdio, int level)
@@ -109,24 +97,23 @@ public class Log
 		}
 
 		Log.level = level;
+		Log.stream = stream;
 
 		// Log some stuff
 		log(MESSAGE,Log.class,"When reporting bugs, please"
 			+ " include the following information:");
 		String[] props = {
-			"java.version", "java.vm.version", "java.runtime.version",
-			"java.vendor", "java.compiler", "os.name", "os.version",
-			"os.arch", "user.home", "java.home",
-			"java.class.path",
+			"java.version", "java.vendor",
+			"java.compiler", "os.name", "os.version",
+			"os.arch", "user.home", "java.class.path",
 			};
 		for(int i = 0; i < props.length; i++)
 		{
 			log(MESSAGE,Log.class,
 				props[i] + "=" + System.getProperty(props[i]));
 		}
-	} //}}}
+	}
 
-	//{{{ setLogWriter() method
 	/**
 	 * Writes all currently logged messages to this stream if there was no
 	 * stream set previously, and sets the stream to write future log
@@ -140,19 +127,8 @@ public class Log
 		{
 			try
 			{
-				if(wrap)
-				{
-					for(int i = logLineCount; i < log.length; i++)
-					{
-						stream.write(log[i]);
-						stream.write(lineSep);
-					}
-				}
-				for(int i = 0; i < logLineCount; i++)
-				{
-					stream.write(log[i]);
-					stream.write(lineSep);
-				}
+				stream.write(logDocument.getText(0,
+					logDocument.getLength()));
 
 				stream.flush();
 			}
@@ -163,9 +139,19 @@ public class Log
 		}
 
 		Log.stream = stream;
-	} //}}}
+	}
 
-	//{{{ flushStream() method
+	/**
+	 * Returns the document where the most recent messages are stored.
+	 * The document of a Swing text area can be set to this to graphically
+	 * view log messages.
+	 * @since jEdit 2.2pre2
+	 */
+	public static Document getLogDocument()
+	{
+		return logDocument;
+	}
+
 	/**
 	 * Flushes the log stream.
 	 * @since jEdit 2.6pre5
@@ -183,9 +169,8 @@ public class Log
 				io.printStackTrace(realErr);
 			}
 		}
-	} //}}}
+	}
 
-	//{{{ closeStream() method
 	/**
 	 * Closes the log stream. Should be done before your program exits.
 	 * @since jEdit 2.6pre5
@@ -204,55 +189,12 @@ public class Log
 				io.printStackTrace(realErr);
 			}
 		}
-	} //}}}
+	}
 
-	//{{{ getLogListModel() method
 	/**
-	 * Returns the list model for viewing the log contents.
-	 * @since jEdit 4.2pre1
-	 */
-	public static ListModel getLogListModel()
-	{
-		return listModel;
-	} //}}}
-
-	//{{{ log() method
-	/**
-	 * Logs an exception with a message.
-	 *
-	 * If an exception is the cause of a call to {@link #log}, then
-	 * the exception should be explicitly provided so that it can 
-	 * be presented to the (debugging) user in a useful manner
-	 * (not just the exception message, but also the exception stack trace)
-	 *
-	 * @since jEdit 4.3pre5
-	 */
-	public static void log(int urgency, Object source, Object message, 
-		Throwable exception)
-	{
-		// We can do nicer here, but this is a start...
-		log(urgency,source,message);
-		log(urgency,source,exception);
-	} //}}}
-
-	//{{{ log() method
-	/**
-	 * Logs a message. This method is thread-safe.<p>
-	 *
-	 * The following code sends a typical debugging message to the activity
-	 * log:
-	 * <pre>Log.log(Log.DEBUG,this,"counter = " + counter);</pre>
-	 * The corresponding activity log entry might read as follows:
-	 * <pre>[debug] JavaParser: counter = 15</pre>
-	 *
-	 * @param urgency The urgency; can be one of
-	 * <code>Log.DEBUG</code>, <code>Log.MESSAGE</code>,
-	 * <code>Log.NOTICE</code>, <code>Log.WARNING</code>, or
-	 * <code>Log.ERROR</code>.
-	 * @param source The source of the message, either an object or a
-	 * class instance. When writing log messages from macros, set
-	 * this parameter to <code>BeanShell.class</code> to make macro
-	 * errors easier to spot in the activity log.
+	 * Logs a message. This method is threadsafe.
+	 * @param urgency The urgency
+	 * @param source The object that logged this message.
 	 * @param message The message. This can either be a string or
 	 * an exception
 	 *
@@ -290,35 +232,23 @@ public class Log
 			{
 				StringTokenizer st = new StringTokenizer(
 					_message,"\r\n");
-				int lineCount = 0;
-				boolean oldWrap = wrap;
 				while(st.hasMoreTokens())
 				{
-					lineCount++;
-					_log(urgency,_source,st.nextToken()
-						.replace('\t',' '));
+					_log(urgency,_source,st.nextToken());
 				}
-				listModel.update(lineCount,oldWrap);
 			}
 		}
-	} //}}}
+	}
 
-	//{{{ Private members
-
-	//{{{ Instance variables
+	// private members
 	private static Object LOCK = new Object();
-	private static String[] log;
-	private static int logLineCount;
-	private static boolean wrap;
-	private static int level = WARNING;
+	private static Document logDocument;
+	private static int level;
 	private static Writer stream;
 	private static String lineSep;
 	private static PrintStream realOut;
 	private static PrintStream realErr;
-	private static LogListModel listModel;
-	//}}}
 
-	//{{{ Class initializer
 	static
 	{
 		level = WARNING;
@@ -326,12 +256,10 @@ public class Log
 		realOut = System.out;
 		realErr = System.err;
 
-		log = new String[MAXLINES];
+		logDocument = new PlainDocument();
 		lineSep = System.getProperty("line.separator");
-		listModel = new LogListModel();
-	} //}}}
+	}
 
-	//{{{ createPrintStream() method
 	private static PrintStream createPrintStream(final int urgency,
 		final Object source)
 	{
@@ -348,9 +276,8 @@ public class Log
 				log(urgency,source,str);
 			}
 		});
-	} //}}}
+	}
 
-	//{{{ _logException() method
 	private static void _logException(final int urgency,
 		final Object source,
 		final Throwable message)
@@ -361,21 +288,29 @@ public class Log
 		{
 			message.printStackTrace(out);
 		}
-	} //}}}
+	}
 
-	//{{{ _log() method
 	private static void _log(int urgency, String source, String message)
 	{
-		String fullMessage = "[" + urgencyToString(urgency) + "] " + source
-			+ ": " + message;
+		String urgencyString = "[" + urgencyToString(urgency) + "] ";
+
+		String fullMessage = urgencyString + source + ": " + message;
 
 		try
 		{
-			log[logLineCount] = fullMessage;
-			if(++logLineCount >= log.length)
+			logDocument.insertString(logDocument.getLength(),
+				fullMessage,null);
+			logDocument.insertString(logDocument.getLength(),
+				"\n",null);
+
+			Element map = logDocument.getDefaultRootElement();
+			int lines = map.getElementCount();
+			if(lines > MAXLINES)
 			{
-				wrap = true;
-				logLineCount = 0;
+				Element first = map.getElement(0);
+				Element last = map.getElement(lines - MAXLINES);
+				logDocument.remove(first.getStartOffset(),
+					last.getEndOffset());
 			}
 
 			if(stream != null)
@@ -389,16 +324,17 @@ public class Log
 			e.printStackTrace(realErr);
 		}
 
+		message = urgencyString +  message + '\n';
+
 		if(urgency >= level)
 		{
 			if(urgency == ERROR)
-				realErr.println(fullMessage);
+				realErr.print(message);
 			else
-				realOut.println(fullMessage);
+				realOut.print(message);
 		}
-	} //}}}
+	}
 
-	//{{{ urgencyToString() method
 	private static String urgencyToString(int urgency)
 	{
 		switch(urgency)
@@ -416,100 +352,5 @@ public class Log
 		}
 
 		throw new IllegalArgumentException("Invalid urgency: " + urgency);
-	} //}}}
-
-	//}}}
-
-	//{{{ LogListModel class
-	static class LogListModel implements ListModel
-	{
-		Vector listeners = new Vector();
-
-		private void fireIntervalAdded(int index1, int index2)
-		{
-			for(int i = 0; i < listeners.size(); i++)
-			{
-				ListDataListener listener = (ListDataListener)
-					listeners.elementAt(i);
-				listener.intervalAdded(new ListDataEvent(this,
-					ListDataEvent.INTERVAL_ADDED,
-					index1,index2));
-			}
-		}
-
-		private void fireIntervalRemoved(int index1, int index2)
-		{
-			for(int i = 0; i < listeners.size(); i++)
-			{
-				ListDataListener listener = (ListDataListener)
-					listeners.elementAt(i);
-				listener.intervalRemoved(new ListDataEvent(this,
-					ListDataEvent.INTERVAL_REMOVED,
-					index1,index2));
-			}
-		}
-
-		public void addListDataListener(ListDataListener listener)
-		{
-			listeners.addElement(listener);
-		}
-
-		public void removeListDataListener(ListDataListener listener)
-		{
-			listeners.removeElement(listener);
-		}
-
-		public Object getElementAt(int index)
-		{
-			if(wrap)
-			{
-				if(index < MAXLINES - logLineCount)
-					return log[index + logLineCount];
-				else
-					return log[index - MAXLINES + logLineCount];
-			}
-			else
-				return log[index];
-		}
-
-		public int getSize()
-		{
-			if(wrap)
-				return MAXLINES;
-			else
-				return logLineCount;
-		}
-
-		void update(final int lineCount, final boolean oldWrap)
-		{
-			if(lineCount == 0 || listeners.size() == 0)
-				return;
-
-			SwingUtilities.invokeLater(new Runnable()
-			{
-				public void run()
-				{
-					if(wrap)
-					{
-						if(oldWrap)
-							fireIntervalRemoved(0,lineCount - 1);
-						else
-						{
-							fireIntervalRemoved(0,
-								logLineCount);
-						}
-						fireIntervalAdded(
-							MAXLINES - lineCount + 1,
-							MAXLINES);
-					}
-					else
-					{
-						fireIntervalAdded(
-							logLineCount - lineCount + 1,
-							logLineCount);
-					}
-				}
-			});
-		}
-	} //}}}
+	}
 }

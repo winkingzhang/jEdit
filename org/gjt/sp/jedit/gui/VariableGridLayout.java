@@ -1,20 +1,27 @@
 /*
  * VariableGridLayout.java - a grid layout manager with variable cell sizes
+ * (c) 2001 - Dirk Moebius (dmoebius@gmx.net)
  *
- * Originally written by Dirk Moebius for the jEdit project. This work has been
- * placed into the public domain. You may use this work in any way and for any
- * purpose you wish.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or any later version.
  *
- * THIS SOFTWARE IS PROVIDED AS-IS WITHOUT WARRANTY OF ANY KIND, NOT EVEN THE
- * IMPLIED WARRANTY OF MERCHANTABILITY. THE AUTHOR OF THIS SOFTWARE, ASSUMES
- * _NO_ RESPONSIBILITY FOR ANY CONSEQUENCE RESULTING FROM THE USE, MODIFICATION,
- * OR REDISTRIBUTION OF THIS SOFTWARE.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
 package org.gjt.sp.jedit.gui;
 
 
 import java.awt.*;
+
 
 /**
  * The <code>VariableGridLayout</code> class is a layout manager
@@ -162,8 +169,6 @@ public class VariableGridLayout implements LayoutManager2, java.io.Serializable
 
 	public void layoutContainer(Container parent) {
 		synchronized (parent.getTreeLock()) {
-			update(parent);
-
 			int ncomponents = parent.getComponentCount();
 
 			if (ncomponents == 0) {
@@ -199,14 +204,14 @@ public class VariableGridLayout implements LayoutManager2, java.io.Serializable
 			if (total_height != free_height) {
 				double dy = (double)free_height / (double)total_height;
 				for (int r = 0; r < nrows; r++) {
-					row_heights[r] = (int) (row_heights[r] * dy);
+					row_heights[r] = (int) ((double)row_heights[r] * dy);
 				}
 			}
 
 			if (total_width != free_width) {
 				double dx = ((double)free_width) / ((double)total_width);
 				for (int c = 0; c < ncols; c++) {
-					col_widths[c] = (int) (col_widths[c] * dx);
+					col_widths[c] = (int) ((double)col_widths[c] * dx);
 				}
 			}
 
@@ -223,7 +228,34 @@ public class VariableGridLayout implements LayoutManager2, java.io.Serializable
 	}
 
 
-	public void invalidateLayout(Container container) {}
+	public void invalidateLayout(Container container) {
+		int ncomponents = container.getComponentCount();
+		int old_nrows = nrows;
+		int old_ncols = ncols;
+		if (this.mode == FIXED_NUM_ROWS) {
+			nrows = this.size;
+			ncols = (ncomponents + nrows - 1) / nrows;
+		} else {
+			ncols = this.size;
+			nrows = (ncomponents + ncols - 1) / ncols;
+		}
+		if (old_nrows != nrows) {
+			row_heights = new int[nrows];
+		}
+		if (old_ncols != ncols) {
+			col_widths = new int[ncols];
+		}
+	}
+
+
+	public int getRows() {
+		return nrows;
+	}
+
+
+	public int getColumns() {
+		return ncols;
+	}
 
 
 	/**
@@ -243,8 +275,6 @@ public class VariableGridLayout implements LayoutManager2, java.io.Serializable
 	 */
 	private Dimension getLayoutSize(Container parent, int which) {
 		synchronized (parent.getTreeLock()){
-			update(parent);
-
 			int ncomponents = parent.getComponentCount();
 			int h = 0;
 			int w = 0;
@@ -297,26 +327,6 @@ public class VariableGridLayout implements LayoutManager2, java.io.Serializable
 			Insets insets = parent.getInsets();
 			return new Dimension(w + insets.left + insets.right + ((ncols - 1) * hgap),
 								 h + insets.top + insets.bottom + ((nrows - 1) * vgap));
-		}
-	}
-
-
-	private void update(Container container) {
-		int ncomponents = container.getComponentCount();
-		int old_nrows = nrows;
-		int old_ncols = ncols;
-		if (this.mode == FIXED_NUM_ROWS) {
-			nrows = this.size;
-			ncols = (ncomponents + nrows - 1) / nrows;
-		} else {
-			ncols = this.size;
-			nrows = (ncomponents + ncols - 1) / ncols;
-		}
-		if (old_nrows != nrows) {
-			row_heights = new int[nrows];
-		}
-		if (old_ncols != ncols) {
-			col_widths = new int[ncols];
 		}
 	}
 

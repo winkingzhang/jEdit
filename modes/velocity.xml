@@ -7,11 +7,12 @@
 		<PROPERTY NAME="commentStart" VALUE="#*" />
 		<PROPERTY NAME="commentEnd" VALUE="*#" />
 		<PROPERTY NAME="lineComment" VALUE="##" />
-		<!-- Auto indent -->
-		<PROPERTY NAME="indentNextLines" VALUE="^\s*(#(foreach|if|elseif|else))\s*\(.*\)\s*"/>
-		<PROPERTY NAME="unindentThisLine" VALUE="^\s*#(end|elseif|else)\b.*"/>
 	</PROPS>
 	<RULES IGNORE_CASE="TRUE">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<!-- SGML comment -->
 		<SPAN TYPE="COMMENT1">
 			<BEGIN>&lt;!--</BEGIN>
@@ -19,14 +20,14 @@
 		</SPAN>
 
 		<!-- JavaScript -->
-		<SPAN TYPE="MARKUP" DELEGATE="JAVASCRIPT">
-			<BEGIN>&lt;SCRIPT</BEGIN>
+		<SPAN TYPE="MARKUP" DELEGATE="javascript::MAIN">
+			<BEGIN>&lt;SCRIPT&gt;</BEGIN>
 			<END>&lt;/SCRIPT&gt;</END>
 		</SPAN>
 
 		<!-- stylesheet -->
-		<SPAN TYPE="MARKUP" DELEGATE="CSS">
-			<BEGIN>&lt;STYLE</BEGIN>
+		<SPAN TYPE="MARKUP" DELEGATE="css::MAIN">
+			<BEGIN>&lt;STYLE&gt;</BEGIN>
 			<END>&lt;/STYLE&gt;</END>
 		</SPAN>
 
@@ -36,35 +37,6 @@
 			<END>&gt;</END>
 		</SPAN>
 
-		<!-- markup tags -->
-		<SPAN TYPE="MARKUP" DELEGATE="html::TAGS">
-			<BEGIN>&lt;</BEGIN>
-			<END>&gt;</END>
-		</SPAN>
-
-		<!-- SGML entities -->
-		<SPAN TYPE="LITERAL2" NO_WORD_BREAK="TRUE">
-			<BEGIN>&amp;</BEGIN>
-			<END>;</END>
-		</SPAN>
-		<IMPORT DELEGATE="VELOCITY" />
-	</RULES>
-
-	<RULES SET="VELOCITY">
-		<SPAN TYPE="COMMENT2">
-			<BEGIN>#*</BEGIN>
-			<END>*#</END>
-		</SPAN>
-
-		<EOL_SPAN TYPE="COMMENT3">##</EOL_SPAN>
-
-		<SPAN TYPE="KEYWORD3" NO_LINE_BREAK="TRUE">
-			<BEGIN>${</BEGIN>
-			<END>}</END>
-		</SPAN>
-
-		<SEQ_REGEXP HASH_CHAR="$" TYPE="KEYWORD3"
-			>\$!?[A-z][A-z0-9._-]*</SEQ_REGEXP>
 
 		<KEYWORDS>
 			<KEYWORD1>#set</KEYWORD1>
@@ -78,39 +50,37 @@
 			<KEYWORD1>#stop</KEYWORD1>
 			<KEYWORD1>#include</KEYWORD1>
 		</KEYWORDS>
+
+		<MARK_FOLLOWING TYPE="KEYWORD2">$</MARK_FOLLOWING>
+
+		<!-- markup tags -->
+		<SPAN TYPE="MARKUP" DELEGATE="TAGS">
+			<BEGIN>&lt;</BEGIN>
+			<END>&gt;</END>
+		</SPAN>
+
+		<!-- SGML entities -->
+		<SPAN TYPE="LITERAL2" NO_WORD_BREAK="TRUE">
+			<BEGIN>&amp;</BEGIN>
+			<END>;</END>
+		</SPAN>
 	</RULES>
 
-	<RULES SET="JAVASCRIPT" DEFAULT="MARKUP" IGNORE_CASE="TRUE">
-		<SEQ TYPE="MARKUP" DELEGATE="JAVASCRIPT2">&gt;</SEQ>
-		<!-- handle <SCRIPT SRC="..."> properly -->
-		<SEQ TYPE="MARKUP" DELEGATE="BACK_TO_HTML">SRC=</SEQ>
-	</RULES>
+	<RULES SET="TAGS" DEFAULT="MARKUP">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
 
-	<RULES SET="JAVASCRIPT2"
-		ESCAPE="\"
-		IGNORE_CASE="FALSE"
-		HIGHLIGHT_DIGITS="TRUE"
-		DIGIT_RE="(0x[\p{XDigit}]+[lL]?|[\p{Digit}]+(e[\p{Digit}]*)?[lLdDfF]?)">
+		<SPAN TYPE="LITERAL1">
+			<BEGIN>"</BEGIN>
+			<END>"</END>
+		</SPAN>
 
-		<IMPORT DELEGATE="VELOCITY" />
-		<IMPORT DELEGATE="javascript::MAIN" />
-	</RULES>
+		<SPAN TYPE="LITERAL1">
+			<BEGIN>'</BEGIN>
+			<END>'</END>
+		</SPAN>
 
-	<RULES SET="BACK_TO_HTML" DEFAULT="MARKUP">
-		<SEQ TYPE="MARKUP" DELEGATE="MAIN">&gt;</SEQ>
-	</RULES>
-
-	<RULES SET="CSS" DEFAULT="MARKUP">
-		<SEQ TYPE="MARKUP" DELEGATE="CSS2">&gt;</SEQ>
-	</RULES>
-
-	<RULES SET="CSS2"
-		IGNORE_CASE="TRUE"
-		HIGHLIGHT_DIGITS="TRUE"
-		DIGIT_RE="[\p{Digit}]+(pt|pc|in|mm|cm|em|ex|px|ms|s|%)"
-		NO_WORD_SEP="-_">
-
-		<IMPORT DELEGATE="VELOCITY" />
-		<IMPORT DELEGATE="css::MAIN" />
+		<SEQ TYPE="OPERATOR">=</SEQ>
 	</RULES>
 </MODE>

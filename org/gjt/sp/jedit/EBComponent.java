@@ -20,13 +20,9 @@
 package org.gjt.sp.jedit;
 
 /**
- * A component on the EditBus. Every plugin class that uses the EditBus for
- * receiving messages must implement this interface.
- *
- * @see org.gjt.sp.jedit.EBMessage
- *
+ * A component on the EditBus. Messages sent on the EditBus are forwarded
+ * to all components in turn.
  * @author Slava Pestov
- * @author John Gellene (API documentation)
  * @version $Id$
  *
  * @since jEdit 2.2pre6
@@ -35,21 +31,6 @@ public interface EBComponent
 {
 	/**
 	 * Handles a message sent on the EditBus.
-	 *
-	 * This method must specify the type of responses the plugin will have
-	 * for various subclasses of the {@link EBMessage} class. Typically
-	 * this is done with one or more <code>if</code> blocks that test
-	 * whether the message is an instance of a derived message class in
-	 * which the component has an interest. For example:
-	 *
-	 * <pre> if(msg instanceof BufferUpdate) {
-         *     // a buffer's state has changed!
-         * }
-         * else if(msg instanceof ViewUpdate) {
-         *     // a view's state has changed!
-         * }
-         * // ... and so on</pre>
-	 *
 	 * @param message The message
 	 */
 	void handleMessage(EBMessage message);

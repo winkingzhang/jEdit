@@ -1,10 +1,6 @@
 /*
  * OptionGroup.java - Option pane group
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 2000 mike dillon
- * Portions copyright (C) 2003 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -23,177 +19,86 @@
 
 package org.gjt.sp.jedit;
 
-import java.util.*;
+import java.util.Enumeration;
+import java.util.Vector;
+
 import org.gjt.sp.util.Log;
 
-/**
- * A set of option panes shown in one branch in the options dialog.<p>
- *
- * Plugins should not create instances of this class anymore. See
- * {@link EditPlugin} for information on how jEdit obtains and constructs
- * option pane instances.
- *
- * @author Mike Dillon
- * @version $Id$
- */
 public class OptionGroup
 {
-	//{{{ OptionGroup constructor
-	/**
-	 * Creates an option group.
-	 * @param name The internal name of the option group, used to key a
-	 * property <code>options.<i>name</i>.label</code> which is the
-	 * label displayed in the options dialog.
-	 * @see jEdit#getProperty(String)
-	 */
 	public OptionGroup(String name)
 	{
 		this.name = name;
-		label = jEdit.getProperty("options." + name + ".label");
 		members = new Vector();
-	} //}}}
+	}
 
-	//{{{ OptionGroup constructor
-	/**
-	 * Creates an option group.
-	 * @param label The label
-	 * @param options A whitespace-separated list of option pane names
-	 * @since jEdit 4.2pre2
-	 */
-	public OptionGroup(String name, String label, String options)
-	{
-		this.name = name;
-		this.label = label;
-		members = new Vector();
-
-		StringTokenizer st = new StringTokenizer(options);
-		while(st.hasMoreTokens())
-		{
-			String pane = st.nextToken();
-			addOptionPane(pane);
-		}
-	} //}}}
-
-	//{{{ getName() method
 	public String getName()
 	{
 		return name;
-	} //}}}
+	}
 
-	//{{{ getLabel() method
-	/**
-	 * Returns the option group's human-readable label.
-	 * @since jEdit 4.2pre1
-	 */
-	public String getLabel()
-	{
-		return label;
-	} //}}}
-
-	//{{{ addOptionGroup() method
 	public void addOptionGroup(OptionGroup group)
 	{
-		insertionSort(group.getLabel(),group);
-	} //}}}
+		if (members.indexOf(group) != -1) return;
 
-	//{{{ addOptionPane() method
+		members.addElement(group);
+	}
+
 	public void addOptionPane(OptionPane pane)
 	{
-		String label = jEdit.getProperty("options."
-			+ pane.getName() + ".label","NO LABEL PROPERTY: "
-			+ pane.getName());
+		if (members.indexOf(pane) != -1) return;
 
-		insertionSort(label,pane);
-	} //}}}
+		members.addElement(pane);
+	}
 
-	//{{{ addOptionPane() method
-	public void addOptionPane(String pane)
-	{
-		String label = jEdit.getProperty("options."
-			+ pane + ".label","NO LABEL PROPERTY: "
-			+ pane);
-
-		insertionSort(label,pane);
-	} //}}}
-
-	//{{{ getMembers() method
 	public Enumeration getMembers()
 	{
 		return members.elements();
-	} //}}}
+	}
 
-	//{{{ getMember() method
 	public Object getMember(int index)
 	{
 		return (index >= 0 && index < members.size())
 			? members.elementAt(index) : null;
-	} //}}}
+	}
 
-	//{{{ getMemberIndex() method
 	public int getMemberIndex(Object member)
 	{
 		return members.indexOf(member);
-	} //}}}
+	}
 
-	//{{{ getMemberCount() method
 	public int getMemberCount()
 	{
 		return members.size();
-	} //}}}
+	}
 
-	//{{{ setSort() method
-	/**
-	 * Sets if the members of this group should be sorted.
-	 * @since jEdit 4.2pre3
-	 */
-	public void setSort(boolean sort)
+	public void save()
 	{
-		this.sort = sort;
-	} //}}}
+		Enumeration enum = members.elements();
 
-	//{{{ Private members
-	private String name;
-	private String label;
-	private Vector members;
-	private boolean sort;
-
-	//{{{ insertionSort() method
-	private void insertionSort(String newLabel, Object newObj)
-	{
-		if(sort)
+		while (enum.hasMoreElements())
 		{
-			for(int i = 0; i < members.size(); i++)
+			Object elem = enum.nextElement();
+			try
 			{
-				Object obj = members.elementAt(i);
-				String label;
-				if(obj instanceof OptionPane)
+				if (elem instanceof OptionPane)
 				{
-					String name = ((OptionPane)obj).getName();
-					label = jEdit.getProperty("options."
-						+ name + ".label","NO LABEL PROPERTY: "
-						+ name);
+					((OptionPane)elem).save();
 				}
-				else if(obj instanceof String)
+				else if (elem instanceof OptionGroup)
 				{
-					label = jEdit.getProperty("options."
-						+ obj + ".label","NO LABEL PROPERTY: "
-						+ obj);
-				}
-				else if(obj instanceof OptionGroup)
-					label = ((OptionGroup)obj).getLabel();
-				else
-					throw new InternalError();
-
-				if(newLabel.compareTo(label) < 0)
-				{
-					members.insertElementAt(newObj,i);
-					return;
+					((OptionGroup)elem).save();
 				}
 			}
+			catch(Throwable t)
+			{
+				Log.log(Log.ERROR, elem,
+					"Error saving option pane");
+				Log.log(Log.ERROR, elem, t);
+			}
 		}
+	}
 
-		members.addElement(newObj);
-	} //}}}
-
-	//}}}
+	private String name;
+	private Vector members;
 }

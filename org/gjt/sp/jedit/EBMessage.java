@@ -1,9 +1,6 @@
 /*
  * EBMessage.java - An EditBus message
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1999, 2002 Slava Pestov
+ * Copyright (C) 1999 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,36 +19,18 @@
 
 package org.gjt.sp.jedit;
 
+import java.util.Enumeration;
+import java.util.Vector;
+
 /**
- * The base class of all EditBus messages.<p>
- *
- * Message classes extending this class typically add
- * other data members and methods to provide subscribers with whatever is
- * needed to handle the message appropriately.<p>
- *
- * Message types sent by jEdit can be found in the
- * {@link org.gjt.sp.jedit.msg} package.
- *
+ * The base class of all EditBus messages.
  * @author Slava Pestov
- * @author John Gellene (API documentation)
  * @version $Id$
  *
  * @since jEdit 2.2pre6
  */
 public abstract class EBMessage
 {
-	//{{{ EBMessage constructor
-	/**
-	 * Creates a new message.
-	 * @param source The message source
-	 * @since jEdit 4.2pre1
-	 */
-	public EBMessage(Object source)
-	{
-		this.source = source;
-	} //}}}
-
-	//{{{ EBMessage constructor
 	/**
 	 * Creates a new message.
 	 * @param source The message source
@@ -59,40 +38,131 @@ public abstract class EBMessage
 	public EBMessage(EBComponent source)
 	{
 		this.source = source;
-	} //}}}
+	}
 
-	//{{{ getSource() method
 	/**
 	 * Returns the sender of this message.
-	 * @since jEdit 4.2pre1
 	 */
-	public Object getSource()
+	public EBComponent getSource()
 	{
 		return source;
-	} //}}}
+	}
 
-	//{{{ toString() method
+	/**
+	 * Vetoes this message. It will not be passed on further
+	 * on the bus, and instead will be returned directly to
+	 * the sender with the vetoed flag on.
+	 */
+	public void veto()
+	{
+		vetoed = true;
+	}
+
+	/**
+	 * Returns if this message has been vetoed by another
+	 * bus component.
+	 */
+	public boolean isVetoed()
+	{
+		return vetoed;
+	}
+
 	/**
 	 * Returns a string representation of this message.
 	 */
 	public String toString()
 	{
-		String className = getClass().getName();
-		int index = className.lastIndexOf('.');
-		return className.substring(index + 1)
-			+ "[" + paramString() + "]";
-	} //}}}
+		return getClass().getName() + "[" + paramString() + "]";
+	}
 
-	//{{{ paramString() method
 	/**
 	 * Returns a string representation of this message's parameters.
 	 */
 	public String paramString()
 	{
 		return "source=" + source;
-	} //}}}
+	}
 
-	//{{{ Private members
-	private Object source;
-	//}}}
+	// private members
+	private EBComponent source;
+	private boolean vetoed;
+
+	/**
+	 * A message implementation that cannot be vetoed.
+	 */
+	public static abstract class NonVetoable extends EBMessage
+	{
+		/**
+		 * Creates a new non-vetoable message.
+		 * @param source The message source
+		 */
+		public NonVetoable(EBComponent source)
+		{
+			super(source);
+		}
+
+		/**
+		 * Disallows this message from being vetoed.
+		 */
+		public void veto()
+		{
+			throw new InternalError("Can't veto this message");
+		}
+	}
+
+	/**
+	 * A message implementation that allows components to attach return
+	 * values to the message, thus allowing information to be collected
+	 * from others on the bus. Because this type of message is indended
+	 * to collect information from all other members of the bus, it is
+	 * non-vetoable.
+	 */
+// 	public static abstract class ReturnValue extends NonVetoable
+// 	{
+// 		/**
+// 		 * Creates a new return value message.
+// 		 * @param source The message source
+// 		 */
+// 		public ReturnValue(EBComponent source)
+// 		{
+// 			super(source);
+// 		}
+// 
+// 		/**
+// 		 * Adds data to the return value list. Subclasses should
+// 		 * check that the object is of the correct type.
+// 		 * @param obj The object
+// 		 */
+// 		public void addReturn(Object obj)
+// 		{
+// 			if(returnValues == null)
+// 				returnValues = new Vector();
+// 			returnValues.addElement(obj);
+// 		}
+// 
+// 		/**
+// 		 * Returns the values added to the return list by other
+// 		 * handlers of this message. Returns null if no values were
+// 		 * present.
+// 		 */
+// 		public Object[] getReturnValues()
+// 		{
+// 			if(returnValues == null)
+// 				return null;
+// 			Object[] array = new Object[returnValues.size()];
+// 			returnValues.copyInto(array);
+// 			return array;
+// 		}
+// 
+// 		/**
+// 		 * Returns a string representation of this message's parameters.
+// 		 */
+// 		public String paramString()
+// 		{
+// 			return super.paramString() + ",returnValues=" + returnValues;
+// 		}
+// 
+// 		// private members
+// 		private Vector returnValues;
+// 	}
 }

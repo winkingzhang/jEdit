@@ -1,9 +1,6 @@
 /*
  * Abbrevs.java - Abbreviation manager
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1999, 2004 Slava Pestov
+ * Copyright (C) 1999, 2000, 2001 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,13 +19,14 @@
 
 package org.gjt.sp.jedit;
 
-//{{{ Imports
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Element;
+import javax.swing.*;
 import java.io.*;
 import java.util.*;
 import org.gjt.sp.jedit.gui.AddAbbrevDialog;
 import org.gjt.sp.jedit.textarea.*;
 import org.gjt.sp.util.Log;
-//}}}
 
 /**
  * Abbreviation manager.
@@ -37,9 +35,6 @@ import org.gjt.sp.util.Log;
  */
 public class Abbrevs
 {
-	public static final String ENCODING = "UTF8";
-
-	//{{{ getExpandOnInput() method
 	/**
 	 * Returns if abbreviations should be expanded after the
 	 * user finishes typing a word.
@@ -47,21 +42,19 @@ public class Abbrevs
 	public static boolean getExpandOnInput()
 	{
 		return expandOnInput;
-	} //}}}
+	}
 
-	//{{{ setExpandOnInput() method
 	/**
 	 * Sets if abbreviations should be expanded after the
 	 * user finishes typing a word.
-	 * @param expandOnInput If true, typing a non-alphanumeric character
-	 * will automatically attempt to expand the current abbrev
+	 * @param true If true, typing a non-alphanumeric characater will
+	 * automatically attempt to expand the current abbrev
 	 */
 	public static void setExpandOnInput(boolean expandOnInput)
 	{
 		Abbrevs.expandOnInput = expandOnInput;
-	} //}}}
+	}
 
-	//{{{ expandAbbrev() method
 	/**
 	 * Expands the abbrev at the caret position in the specified
 	 * view.
@@ -72,20 +65,20 @@ public class Abbrevs
 	 */
 	public static boolean expandAbbrev(View view, boolean add)
 	{
-		//{{{ Figure out some minor things
-		Buffer buffer = view.getBuffer();
 		JEditTextArea textArea = view.getTextArea();
-		if(!buffer.isEditable())
+		if(!textArea.isEditable())
 		{
 			view.getToolkit().beep();
 			return false;
 		}
 
+		Buffer buffer = view.getBuffer();
+
 		int line = textArea.getCaretLine();
-		int lineStart = buffer.getLineStartOffset(line);
+		int lineStart = textArea.getLineStartOffset(line);
 		int caret = textArea.getCaretPosition();
 
-		String lineText = buffer.getLineText(line);
+		String lineText = textArea.getLineText(line);
 		if(lineText.length() == 0)
 		{
 			if(add)
@@ -99,20 +92,20 @@ public class Abbrevs
 			if(add)
 				view.getToolkit().beep();
 			return false;
-		} //}}}
+		}
 
 		// we reuse the 'pp' vector to save time
-		m_pp.removeAllElements();
+		pp.removeAllElements();
 
 		int wordStart;
 		String abbrev;
 
-		//{{{ Handle abbrevs of the form abbrev#pos1#pos2#pos3#...
+		// handle abbrevs of the form abbrev#pos1#pos2#pos3#...
 		if(lineText.charAt(pos-1) == '#')
 		{
 			wordStart = lineText.indexOf('#');
 			wordStart = TextUtilities.findWordStart(lineText,wordStart,
-				buffer.getStringProperty("noWordSep") + '#');
+				(String)buffer.getProperty("noWordSep") + '#');
 
 			abbrev = lineText.substring(wordStart,pos - 1);
 
@@ -124,84 +117,87 @@ public class Abbrevs
 			{
 				if(abbrev.charAt(i) == '#')
 				{
-					m_pp.addElement(abbrev.substring(lastIndex,i));
+					pp.addElement(abbrev.substring(lastIndex,i));
 					lastIndex = i + 1;
 				}
 			}
 
-			m_pp.addElement(abbrev.substring(lastIndex));
+			pp.addElement(abbrev.substring(lastIndex));
 
 			// the first element of pp is the abbrev itself
-			abbrev = (String)m_pp.elementAt(0);
-			m_pp.removeElementAt(0);
-		} //}}}
-		//{{{ Handle ordinary abbrevs
+			abbrev = (String)pp.elementAt(0);
+		}
 		else
 		{
 			wordStart = TextUtilities.findWordStart(lineText,pos - 1,
-				buffer.getStringProperty("noWordSep"));
+				(String)buffer.getProperty("noWordSep"));
 
 			abbrev = lineText.substring(wordStart,pos);
-		} //}}}
+		}
 
 		Expansion expand = expandAbbrev(buffer.getMode().getName(),
 			abbrev,(buffer.getBooleanProperty("noTabs") ?
-			buffer.getTabSize() : 0),m_pp);
+			buffer.getTabSize() : 0),pp);
 
-		//{{{ Maybe show add abbrev dialog
 		if(expand == null)
 		{
 			if(add)
 				new AddAbbrevDialog(view,abbrev);
 
 			return false;
-		} //}}}
-		//{{{ Insert the expansion
+		}
 		else
 		{
-			buffer.remove(lineStart + wordStart,
-				pos - wordStart);
-
-			int whitespace = buffer.insertIndented(
-				lineStart + wordStart,
-				expand.text);
-
-			int newlines = countNewlines(expand.text,
-				expand.caretPosition);
-
-			if(expand.caretPosition != -1)
+			buffer.beginCompoundEdit();
+			try
 			{
-				textArea.setCaretPosition(lineStart + wordStart
-					+ expand.caretPosition
-					+ newlines * whitespace);
+				// obtain the leading indent for later use
+				lineText = buffer.getText(lineStart,wordStart);
+				int leadingIndent = MiscUtilities.getLeadingWhiteSpaceWidth(
+					lineText,buffer.getTabSize());
+
+				buffer.remove(lineStart + wordStart,pos - wordStart);
+				buffer.insertString(lineStart + wordStart,expand.text,null);
+				if(expand.caretPosition != -1)
+				{
+					textArea.setCaretPosition(lineStart + wordStart
+						+ expand.caretPosition);
+				}
+
+				String whiteSpace = MiscUtilities.createWhiteSpace(
+					leadingIndent,buffer.getBooleanProperty("noTabs")
+					? 0 : buffer.getTabSize());
+
+				Element map = buffer.getDefaultRootElement();
+
+				// note that if expand.lineCount is 0, we
+				// don't do any indentation at all
+				for(int i = line + 1; i <= line + expand.lineCount; i++)
+				{
+					Element elem = map.getElement(i);
+					buffer.insertString(elem.getStartOffset(),
+						whiteSpace,null);
+				}
 			}
-			if(expand.posParamCount != m_pp.size())
+			catch(BadLocationException bl)
 			{
-				view.getStatus().setMessageAndClear(
-					jEdit.getProperty(
-					"view.status.incomplete-abbrev",
-					new Integer[] { new Integer(m_pp.size()),
-					new Integer(expand.posParamCount) }));
+				Log.log(Log.ERROR,Abbrevs.class,bl);
 			}
+			buffer.endCompoundEdit();
 
 			return true;
-		} //}}}
-	} //}}}
+		}
+	}
 
-	//{{{ getGlobalAbbrevs() method
 	/**
 	 * Returns the global abbreviation set.
 	 * @since jEdit 2.3pre1
 	 */
 	public static Hashtable getGlobalAbbrevs()
 	{
-		if(!loaded)
-			load();
-
 		return globalAbbrevs;
-	} //}}}
+	}
 
-	//{{{ setGlobalAbbrevs() method
 	/**
 	 * Sets the global abbreviation set.
 	 * @param globalAbbrevs The new global abbrev set
@@ -211,34 +207,28 @@ public class Abbrevs
 	{
 		abbrevsChanged = true;
 		Abbrevs.globalAbbrevs = globalAbbrevs;
-	} //}}}
+	}
 
-	//{{{ getModeAbbrevs() method
 	/**
 	 * Returns the mode-specific abbreviation set.
 	 * @since jEdit 2.3pre1
 	 */
 	public static Hashtable getModeAbbrevs()
 	{
-		if(!loaded)
-			load();
-
 		return modes;
-	} //}}}
+	}
 
-	//{{{ setModeAbbrevs() method
 	/**
 	 * Sets the mode-specific abbreviation set.
-	 * @param modes The new mode abbrev set
+	 * @param globalAbbrevs The new global abbrev set
 	 * @since jEdit 2.3pre1
 	 */
 	public static void setModeAbbrevs(Hashtable modes)
 	{
 		abbrevsChanged = true;
 		Abbrevs.modes = modes;
-	} //}}}
+	}
 
-	//{{{ addGlobalAbbrev() method
 	/**
 	 * Adds an abbreviation to the global abbreviation list.
 	 * @param abbrev The abbreviation
@@ -247,14 +237,10 @@ public class Abbrevs
 	 */
 	public static void addGlobalAbbrev(String abbrev, String expansion)
 	{
-		if(!loaded)
-			load();
-
 		globalAbbrevs.put(abbrev,expansion);
 		abbrevsChanged = true;
-	} //}}}
+	}
 
-	//{{{ addModeAbbrev() method
 	/**
 	 * Adds a mode-specific abbrev.
 	 * @param mode The edit mode
@@ -264,9 +250,6 @@ public class Abbrevs
 	 */
 	public static void addModeAbbrev(String mode, String abbrev, String expansion)
 	{
-		if(!loaded)
-			load();
-
 		Hashtable modeAbbrevs = (Hashtable)modes.get(mode);
 		if(modeAbbrevs == null)
 		{
@@ -275,71 +258,17 @@ public class Abbrevs
 		}
 		modeAbbrevs.put(abbrev,expansion);
 		abbrevsChanged = true;
-	} //}}}
-
-	//{{{ save() method
-	static void save()
-	{
-		jEdit.setBooleanProperty("view.expandOnInput",expandOnInput);
-
-		String settings = jEdit.getSettingsDirectory();
-		if(abbrevsChanged && settings != null)
-		{
-			File file1 = new File(MiscUtilities.constructPath(settings,"#abbrevs#save#"));
-			File file2 = new File(MiscUtilities.constructPath(settings,"abbrevs"));
-			if(file2.exists() && file2.lastModified() != abbrevsModTime)
-			{
-				Log.log(Log.WARNING,Abbrevs.class,file2 + " changed on disk;"
-					+ " will not save abbrevs");
-			}
-			else
-			{
-				jEdit.backupSettingsFile(file2);
-
-				try
-				{
-					saveAbbrevs(new OutputStreamWriter(
-						new FileOutputStream(file1),
-						ENCODING));
-					file2.delete();
-					file1.renameTo(file2);
-				}
-				catch(Exception e)
-				{
-					Log.log(Log.ERROR,Abbrevs.class,"Error while saving " + file1);
-					Log.log(Log.ERROR,Abbrevs.class,e);
-				}
-				abbrevsModTime = file2.lastModified();
-			}
-		}
-	} //}}}
-
-	//{{{ Private members
-
-	//{{{ Instance variables
-	private static boolean loaded;
-	private static boolean abbrevsChanged;
-	private static long abbrevsModTime;
-	private static boolean expandOnInput;
-	private static Hashtable globalAbbrevs;
-	private static Hashtable modes;
-	
-	/**  Vector of Positional Parameters */
-	private static Vector m_pp = new Vector();
-	//}}}
-
-	private Abbrevs() {}
-
-	static
-	{
-		expandOnInput = jEdit.getBooleanProperty("view.expandOnInput");
 	}
 
-	//{{{ load() method
-	private static void load()
+	// package-private members
+	static void load()
 	{
+		expandOnInput = jEdit.getBooleanProperty("view.expandOnInput");
+
 		globalAbbrevs = new Hashtable();
 		modes = new Hashtable();
+
+		boolean loaded = false;
 
 		String settings = jEdit.getSettingsDirectory();
 		if(settings != null)
@@ -349,8 +278,7 @@ public class Abbrevs
 
 			try
 			{
-				loadAbbrevs(new InputStreamReader(
-					new FileInputStream(file),ENCODING));
+				loadAbbrevs(new FileReader(file));
 				loaded = true;
 			}
 			catch(FileNotFoundException fnf)
@@ -369,40 +297,58 @@ public class Abbrevs
 			try
 			{
 				loadAbbrevs(new InputStreamReader(Abbrevs.class
-					.getResourceAsStream("default.abbrevs"),
-					ENCODING));
+					.getResourceAsStream("default.abbrevs")));
 			}
 			catch(Exception e)
 			{
 				Log.log(Log.ERROR,Abbrevs.class,"Error while loading default.abbrevs");
 				Log.log(Log.ERROR,Abbrevs.class,e);
 			}
-			loaded = true;
 		}
-	} //}}}
+	}
 
-	//{{{ countNewlines() method
-	private static int countNewlines(String s, int end)
+	static void save()
 	{
-		int counter = 0;
+		jEdit.setBooleanProperty("view.expandOnInput",expandOnInput);
 
-		for(int i = 0; i < end; i++)
+		String settings = jEdit.getSettingsDirectory();
+		if(abbrevsChanged && settings != null)
 		{
-			if(s.charAt(i) == '\n')
-				counter++;
+			File file = new File(MiscUtilities.constructPath(settings,"abbrevs"));
+			if(file.exists() && file.lastModified() != abbrevsModTime)
+			{
+				Log.log(Log.WARNING,Abbrevs.class,file + " changed on disk;"
+					+ " will not save abbrevs");
+			}
+			else
+			{
+				try
+				{
+					saveAbbrevs(new FileWriter(file));
+				}
+				catch(Exception e)
+				{
+					Log.log(Log.ERROR,Abbrevs.class,"Error while saving " + file);
+					Log.log(Log.ERROR,Abbrevs.class,e);
+				}
+				abbrevsModTime = file.lastModified();
+			}
 		}
+	}
 
-		return counter;
-	} //}}}
+	// private members
+	private static boolean abbrevsChanged;
+	private static long abbrevsModTime;
+	private static boolean expandOnInput;
+	private static Hashtable globalAbbrevs;
+	private static Hashtable modes;
+	private static Vector pp = new Vector();
 
-	//{{{ expandAbbrev() method
+	private Abbrevs() {}
+
 	private static Expansion expandAbbrev(String mode, String abbrev,
 		int softTabSize, Vector pp)
 	{
-		m_pp = pp;
-		if(!loaded)
-			load();
-
 		// try mode-specific abbrevs first
 		String expand = null;
 		Hashtable modeAbbrevs = (Hashtable)modes.get(mode);
@@ -415,55 +361,47 @@ public class Abbrevs
 		if(expand == null)
 			return null;
 		else
-			return new Expansion(expand,softTabSize,m_pp);
-	} //}}}
+			return new Expansion(expand,softTabSize,pp);
+	}
 
-	//{{{ loadAbbrevs() method
 	private static void loadAbbrevs(Reader _in) throws Exception
 	{
 		BufferedReader in = new BufferedReader(_in);
 
-		try
+		Hashtable currentAbbrevs = null;
+
+		String line;
+		while((line = in.readLine()) != null)
 		{
-			Hashtable currentAbbrevs = globalAbbrevs;
-
-			String line;
-			while((line = in.readLine()) != null)
+			if(line.length() == 0)
+				continue;
+			else if(line.startsWith("[") && line.indexOf('|') == -1)
 			{
-				int index = line.indexOf('|');
-
-				if(line.length() == 0)
-					continue;
-				else if(line.startsWith("[") && index == -1)
+				if(line.equals("[global]"))
+					currentAbbrevs = globalAbbrevs;
+				else
 				{
-					if(line.equals("[global]"))
-						currentAbbrevs = globalAbbrevs;
-					else
+					String mode = line.substring(1,
+						line.length() - 1);
+					currentAbbrevs = (Hashtable)modes.get(mode);
+					if(currentAbbrevs == null)
 					{
-						String mode = line.substring(1,
-							line.length() - 1);
-						currentAbbrevs = (Hashtable)modes.get(mode);
-						if(currentAbbrevs == null)
-						{
-							currentAbbrevs = new Hashtable();
-							modes.put(mode,currentAbbrevs);
-						}
+						currentAbbrevs = new Hashtable();
+						modes.put(mode,currentAbbrevs);
 					}
 				}
-				else if(index != -1)
-				{
-					currentAbbrevs.put(line.substring(0,index),
-						line.substring(index + 1));
-				}
+			}
+			else
+			{
+				int index = line.indexOf('|');
+				currentAbbrevs.put(line.substring(0,index),
+					line.substring(index + 1));
 			}
 		}
-		finally
-		{
-			in.close();
-		}
-	} //}}}
 
-	//{{{ saveAbbrevs() method
+		in.close();
+	}
+
 	private static void saveAbbrevs(Writer _out) throws Exception
 	{
 		BufferedWriter out = new BufferedWriter(_out);
@@ -488,9 +426,8 @@ public class Abbrevs
 		}
 
 		out.close();
-	} //}}}
+	}
 
-	//{{{ saveAbbrevs() method
 	private static void saveAbbrevs(Writer out, Hashtable abbrevs)
 		throws Exception
 	{
@@ -506,21 +443,14 @@ public class Abbrevs
 			out.write(values.nextElement().toString());
 			out.write(lineSep);
 		}
-	} //}}}
+	}
 
-	//}}}
-
-	//{{{ Expansion class
 	static class Expansion
 	{
 		String text;
 		int caretPosition = -1;
 		int lineCount;
 
-		// number of positional parameters in abbreviation expansion
-		int posParamCount;
-
-		//{{{ Expansion constructor
 		Expansion(String text, int softTabSize, Vector pp)
 		{
 			StringBuffer buf = new StringBuffer();
@@ -529,7 +459,6 @@ public class Abbrevs
 			for(int i = 0; i < text.length(); i++)
 			{
 				char ch = text.charAt(i);
-				//{{{ Handle backslash
 				if(backslash)
 				{
 					backslash = false;
@@ -556,8 +485,6 @@ public class Abbrevs
 				}
 				else if(ch == '\\')
 					backslash = true;
-				//}}}
-				//{{{ Handle $
 				else if(ch == '$')
 				{
 					if(i != text.length() - 1)
@@ -568,11 +495,16 @@ public class Abbrevs
 							i++;
 
 							int pos = ch - '0';
-							posParamCount = Math.max(pos,posParamCount);
-							// $n is 1-indexed, but vector
-							// contents is zero indexed
-							if(pos <= pp.size())
-								buf.append(pp.elementAt(pos - 1));
+							if(pos < pp.size())
+								buf.append(pp.elementAt(pos));
+							else
+							{
+								// so the user knows
+								// a positional is
+								// expected
+								buf.append('$');
+								buf.append(ch);
+							}
 						}
 						else
 						{
@@ -581,14 +513,12 @@ public class Abbrevs
 							buf.append('$');
 						}
 					}
-					else
-						buf.append('$'); // $ at end is literal
-				} //}}}
+				}
 				else
 					buf.append(ch);
 			}
 
 			this.text = buf.toString();
-		} //}}}
-	} //}}}
+		}
+	}
 }

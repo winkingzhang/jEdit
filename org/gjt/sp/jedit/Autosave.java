@@ -1,9 +1,6 @@
 /*
  * Autosave.java - Autosave manager
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1998, 2003 Slava Pestov
+ * Copyright (C) 1998, 1999, 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,12 +19,9 @@
 
 package org.gjt.sp.jedit;
 
-//{{{ Imports
 import javax.swing.Timer;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import org.gjt.sp.util.Log;
-//}}}
 
 /**
  * @author Slava Pestov
@@ -35,7 +29,6 @@ import org.gjt.sp.util.Log;
  */
 class Autosave implements ActionListener
 {
-	//{{{ setInterval() method
 	public static void setInterval(int interval)
 	{
 		if(interval == 0)
@@ -58,47 +51,43 @@ class Autosave implements ActionListener
 		}
 		else
 			timer.setDelay(interval);
-	} //}}}
+	}
 
-	//{{{ stop() method
 	public static void stop()
 	{
 		if(timer != null)
 			timer.stop();
-	} //}}}
+	}
 
-	//{{{ actionPerformed() method
 	public void actionPerformed(ActionEvent evt)
 	{
-		// might come in handy useful some time
-		/* Runtime runtime = Runtime.getRuntime();
-		int freeMemory = (int)(runtime.freeMemory() / 1024);
-		int totalMemory = (int)(runtime.totalMemory() / 1024);
-		int usedMemory = (totalMemory - freeMemory);
-
-		Log.log(Log.DEBUG,this,"Java heap: " + usedMemory + "Kb / "
-			+ totalMemory + "Kb, " + (usedMemory * 100 / totalMemory)
-			+ "%"); */
-
-		// save list of open files
-		if(jEdit.getViewCount() != 0
-			&& PerspectiveManager.isPerspectiveDirty())
-		{
-			PerspectiveManager.setPerspectiveDirty(false);
-			PerspectiveManager.savePerspective(true);
-		}
-
 		Buffer[] bufferArray = jEdit.getBuffers();
 		for(int i = 0; i < bufferArray.length; i++)
 			bufferArray[i].autosave();
+	}
 
-		// flush log
-		Log.flushStream();
-	} //}}}
-
-	//{{{ Private members
+	// private members
 	private static Timer timer;
 
 	private Autosave() {}
-	//}}}
 }
+
+/*
+ * ChangeLog:
+ * $Log$
+ * Revision 1.1  2001/09/02 05:37:01  spestov
+ * Initial revision
+ *
+ * Revision 1.8  2000/08/03 07:43:41  sp
+ * Favorites added to browser, lots of other stuff too
+ *
+ * Revision 1.7  2000/07/22 03:27:03  sp
+ * threaded I/O improved, autosave rewrite started
+ *
+ * Revision 1.6  2000/06/12 02:43:29  sp
+ * pre6 almost ready
+ *
+ * Revision 1.5  1999/10/01 07:31:39  sp
+ * RMI server replaced with socket-based server, minor changes
+ *
+ */

@@ -36,31 +36,7 @@ public abstract class EnhancedDialog extends JDialog
 	public EnhancedDialog(Frame parent, String title, boolean modal)
 	{
 		super(parent,title,modal);
-		_init();
-	}
-	
-	public EnhancedDialog(Dialog parent, String title, boolean modal)
-	{
-		super(parent,title,modal);
-		_init();
-	}
 
-	public boolean getEnterEnabled()
-	{
-		return enterEnabled;
-	}
-
-	public void setEnterEnabled(boolean enterEnabled)
-	{
-		this.enterEnabled = enterEnabled;
-	}
-	
-	public abstract void ok();
-	public abstract void cancel();
-
-	//{{{ Private members
-	private void _init()
-	{
 		((Container)getLayeredPane()).addContainerListener(
 			new ContainerHandler());
 		getContentPane().addContainerListener(new ContainerHandler());
@@ -70,14 +46,13 @@ public abstract class EnhancedDialog extends JDialog
 		addWindowListener(new WindowHandler());
 
 		setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-		
-		enterEnabled = true;
 	}
-	//}}}
-	
+
+	public abstract void ok();
+	public abstract void cancel();
+
 	// protected members
 	protected KeyHandler keyHandler;
-	protected boolean enterEnabled;
 
 	// Recursively adds our key listener to sub-components
 	class ContainerHandler extends ContainerAdapter
@@ -130,9 +105,9 @@ public abstract class EnhancedDialog extends JDialog
 			if(evt.isConsumed())
 				return;
 
-			if(evt.getKeyCode() == KeyEvent.VK_ENTER
-				&& enterEnabled)
+			if(evt.getKeyCode() == KeyEvent.VK_ENTER)
 			{
+				// crusty workaround
 				Component comp = getFocusOwner();
 				while(comp != null)
 				{

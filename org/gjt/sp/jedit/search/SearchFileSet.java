@@ -1,6 +1,6 @@
 /*
  * SearchFileSet.java - Abstract file matcher interface
- * Copyright (C) 1999, 2001 Slava Pestov
+ * Copyright (C) 1999 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,38 +22,39 @@ package org.gjt.sp.jedit.search;
 import org.gjt.sp.jedit.*;
 
 /**
- * An abstract interface representing a set of files.
+ * An abstract interface for matching files.
  * @author Slava Pestov
  * @version $Id$
  */
 public interface SearchFileSet
 {
 	/**
-	 * Returns the first file to search.
+	 * Returns the first buffer to search.
 	 * @param view The view performing the search
 	 */
-	String getFirstFile(View view);
+	Buffer getFirstBuffer(View view);
 
 	/**
-	 * Returns the next file to search.
+	 * Returns the next buffer to search.
 	 * @param view The view performing the search
-	 * @param path The last file searched
+	 * @param buffer The last buffer searched
 	 */
-	String getNextFile(View view, String path);
+	Buffer getNextBuffer(View view, Buffer buffer);
 
 	/**
-	 * Returns all path names in this file set.
-	 * @param view The view performing the search
+	 * Called if the specified buffer was found to have a match.
+	 * @param buffer The buffer
 	 */
-	String[] getFiles(View view);
+	void matchFound(Buffer buffer);
 
 	/**
-	 * Returns the number of files in this file set.
+	 * Returns the number of buffers in this file set.
 	 */
-	int getFileCount(View view);
+	int getBufferCount();
 
 	/**
 	 * Returns the BeanShell code that will recreate this file set.
+	 * @since jEdit 2.7pre3
 	 */
 	String getCode();
 }

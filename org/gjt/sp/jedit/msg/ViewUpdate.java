@@ -1,9 +1,6 @@
 /*
  * ViewUpdate.java - View update message
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1999, 2000, 2001, 2002 Slava Pestov
+ * Copyright (C) 1999, 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,6 +19,7 @@
 
 package org.gjt.sp.jedit.msg;
 
+import org.gjt.sp.jedit.textarea.JEditTextArea;
 import org.gjt.sp.jedit.*;
 
 /**
@@ -31,7 +29,7 @@ import org.gjt.sp.jedit.*;
  *
  * @since jEdit 2.2pre6
  */
-public class ViewUpdate extends EBMessage
+public class ViewUpdate extends EBMessage.NonVetoable
 {
 	/**
 	 * View created.
@@ -43,19 +41,6 @@ public class ViewUpdate extends EBMessage
 	 */
 	public static final Object CLOSED = "CLOSED";
 
-	/**
-	 * Active edit pane changed.
-	 * @since jEdit 4.1pre1
-	 */
-	public static final Object EDIT_PANE_CHANGED = "EDIT_PANE_CHANGED";
-
-	/**
-	 * Active view changed.
-	 * @since jEdit 4.3pre4
-	 */
-	public static final Object ACTIVATED = "VIEW_ACTIVATED";
-
-	//{{{ ViewUpdate constructor
 	/**
 	 * Creates a new view update message.
 	 * @param view The view
@@ -69,33 +54,29 @@ public class ViewUpdate extends EBMessage
 			throw new NullPointerException("What must be non-null");
 
 		this.what = what;
-	} //}}}
+	}
 
-	//{{{ getWhat() method
 	/**
 	 * Returns what caused this view update.
 	 */
 	public Object getWhat()
 	{
 		return what;
-	} //}}}
+	}
 
-	//{{{ getView() method
 	/**
 	 * Returns the view involved.
 	 */
 	public View getView()
 	{
 		return (View)getSource();
-	} //}}}
+	}
 
-	//{{{ paramString() method
 	public String paramString()
 	{
-		return "what=" + what + "," + super.paramString();
-	} //}}}
+		return super.paramString() + ",what=" + what;
+	}
 
-	//{{{ Private members
+	// private members
 	private Object what;
-	//}}}
 }

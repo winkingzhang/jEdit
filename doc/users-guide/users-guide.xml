@@ -1,17 +1,14 @@
 <?xml version="1.0" ?>
 
 <!-- jEdit user's guide -->
-<!-- (C) 1999, 2004 Slava Pestov -->
-<!-- (C) 2001, 2002 John Gellene -->
-<!-- (C) 2005, 2006 Alan Ezust -->
+<!-- (C) 1999, 2000, 2001 Slava Pestov -->
+<!-- (C) 2001 John Gellene -->
 
 <!-- jEdit buffer-local properties: -->
 <!-- :indentSize=1:noTabs=true: -->
 
-<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN" [
 
-<!ENTITY conventions SYSTEM "conventions.xml">
 <!ENTITY starting SYSTEM "starting.xml">
 <!ENTITY basics SYSTEM "basics.xml">
 <!ENTITY files SYSTEM "files.xml">
@@ -30,28 +27,28 @@
 
 <!ENTITY writing-modes SYSTEM "writing-modes.xml">
 <!ENTITY installing-modes SYSTEM "installing-modes.xml">
-<!ENTITY updating-modes SYSTEM "updating-modes.xml">
 
 <!ENTITY macro-basics SYSTEM "macro-basics.xml">
+<!ENTITY simple-macros SYSTEM "simple-macros.xml">
 <!ENTITY dialog-macro SYSTEM "dialog-macro.xml">
 <!ENTITY macro-tips SYSTEM "macro-tips.xml">
-<!ENTITY bsh-commands SYSTEM "bsh-commands.xml">
 
 <!ENTITY plugin-intro SYSTEM "plugin-intro.xml">
+<!ENTITY host-design SYSTEM "host-design.xml">
+<!ENTITY plugin-api SYSTEM "plugin-api.xml">
 <!ENTITY plugin-implement SYSTEM "plugin-implement.xml">
-<!ENTITY plugin-tips SYSTEM "plugin-tips.xml">
 
-]>
+<!ENTITY bsh-commands SYSTEM "bsh-commands.xml">
+<!ENTITY api-guide SYSTEM "api-guide.xml">
+<!ENTITY api-message SYSTEM "api-message.xml"> ]>
 
 <book>
 
 <bookinfo>
- <title>jEdit 4.3 User's Guide</title>
+ <title>jEdit 3.2 User's Guide</title>
 
- <copyright><year>1999</year><year>2004</year><holder>Slava Pestov</holder></copyright>
- <copyright><year>2001</year><year>2002</year><holder>John Gellene</holder></copyright>
- <copyright><year>2005</year><year>2006</year><holder>Alan Ezust</holder></copyright>
- 
+ <copyright><year>1998</year><year>2001</year><holder>Slava Pestov</holder></copyright>
+ <copyright><year>2001</year><holder>John Gellene</holder></copyright>
  <legalnotice><title>Legal Notice</title>
   <para>
    Permission is granted to copy, distribute and/or modify this document
@@ -78,7 +75,6 @@
   </para>
  </partintro>
 
- &conventions;
  &starting;
  &basics;
  &files;
@@ -93,7 +89,7 @@
  &globs;
  &regexps;
  &macro-index;
-<!--  &launcher-guide; -->
+ &launcher-guide;
 </part>
 
 <part id="writing-modes-part"><title>Writing Edit Modes</title>
@@ -117,7 +113,6 @@
 
  &writing-modes;
  &installing-modes;
- &updating-modes;
 </part>
 
 <part id="writing-macros-part"><title>Writing Macros</title>
@@ -141,9 +136,9 @@
  </partintro>
 
  &macro-basics;
+ &simple-macros;
  &dialog-macro;
  &macro-tips;
- &bsh-commands;
 </part>
 
 <part id="writing-plugins-part"><title>Writing Plugins</title>
@@ -166,8 +161,35 @@
  </partintro>
 
  &plugin-intro;
+ &host-design;
+ &plugin-api;
  &plugin-implement;
- &plugin-tips;
+</part>
+
+<part id="api-guide-part"><title>jEdit API Reference</title>
+ <partintro>
+  <para>
+   This part of the user's guide covers the jEdit <firstterm>application
+   programmer interface</firstterm>. The information in this part is only useful
+   to macro and plugin developers; you do not need to read it if you only want to
+   use jEdit.
+  </para>
+  <para>
+   The first two chapter covers BeanShell commands, which are can only
+   be used in macros. The second chapter covers APIs useful to both macros and
+   plugins.
+   The final chapter covers the EditBus message system, which is typically
+   only used by plugins.
+  </para>
+  <para>
+   This part of the user's guide was written by John Gellene
+   <email>jgellene@nyc.rr.com</email>.
+  </para>
+ </partintro>
+
+ &bsh-commands;
+ &api-guide;
+ &api-message;
 </part>
 
 </book>

@@ -1,9 +1,6 @@
 /*
  * JARClassLoader.java - Loads classes from JAR files
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1999, 2003 Slava Pestov
+ * Copyright (C) 1999, 2000 Slava Pestov
  * Portions copyright (C) 1999 mike dillon
  *
  * This program is free software; you can redistribute it and/or
@@ -23,100 +20,70 @@
 
 package org.gjt.sp.jedit;
 
-//{{{ Imports
-import java.io.InputStream;
-import java.io.IOException;
-import java.net.URL;
+import java.io.*;
+import java.lang.reflect.Modifier;
+import java.net.*;
 import java.util.*;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.util.zip.*;
 import org.gjt.sp.util.Log;
 
-import java.util.jar.Manifest;
-import java.util.jar.JarFile;
-import java.net.MalformedURLException;
-import java.util.jar.Attributes;
-import java.util.jar.Attributes.Name;
-//}}}
-
 /**
- * A class loader implementation that loads classes from JAR files. All
- * instances share the same set of classes.
+ * A class loader implementation that loads classes from JAR files.
  * @author Slava Pestov
  * @version $Id$
  */
 public class JARClassLoader extends ClassLoader
 {
-	//{{{ JARClassLoader constructor
-	/**
-	 * This constructor creates a class loader for loading classes from all
-	 * plugins. For example BeanShell uses one of these so that scripts can
-	 * use plugin classes.
-	 */
+	// no-args constructor is for loading classes from all plugins
+	// eg BeanShell uses one of these so that scripts can use
+	// plugin classes
 	public JARClassLoader()
 	{
-		// for debugging
-		id = INDEX++;
-		live++;
-	} //}}}
+	}
 
-	//{{{ loadClass() method
+	public JARClassLoader(String path)
+		throws IOException
+	{
+		zipFile = new ZipFile(path);
+
+		Enumeration entires = zipFile.entries();
+		while(entires.hasMoreElements())
+		{
+			ZipEntry entry = (ZipEntry)entires.nextElement();
+			String name = entry.getName();
+			String lname = name.toLowerCase();
+			if(lname.equals("actions.xml"))
+			{
+				jEdit.loadActions(path + "!actions.xml",
+					new BufferedReader(new InputStreamReader(
+					zipFile.getInputStream(entry))),true);
+			}
+			else if(lname.endsWith(".props"))
+				jEdit.loadProps(zipFile.getInputStream(entry),true);
+			else if(name.endsWith("Plugin.class"))
+				pluginClasses.addElement(name);
+		}
+
+		jar = new EditPlugin.JAR(path,this);
+		jEdit.addPluginJAR(jar);
+	}
+
 	/**
 	 * @exception ClassNotFoundException if the class could not be found
 	 */
 	public Class loadClass(String clazz, boolean resolveIt)
 		throws ClassNotFoundException
 	{
-		// see what JARClassLoader this class is in
-		Object obj = classHash.get(clazz);
-		if(obj == NO_CLASS)
-		{
-			// we remember which classes we don't exist
-			// because BeanShell tries loading all possible
-			// <imported prefix>.<class name> combinations
-			throw new ClassNotFoundException(clazz);
-		}
-		else if(obj instanceof JARClassLoader)
-		{
-			JARClassLoader classLoader = (JARClassLoader)obj;
-			return classLoader._loadClass(clazz,resolveIt);
-		}
+		return loadClass(clazz,resolveIt,true);
+	}
 
-		// if it's not in the class hash, and not marked as
-		// non-existent, try loading it from the CLASSPATH
-		try
-		{
-			Class cls;
-
-			/* Defer to whoever loaded us (such as JShell,
-			 * Echidna, etc) */
-			ClassLoader parentLoader = getClass().getClassLoader();
-			if (parentLoader != null)
-				cls = parentLoader.loadClass(clazz);
-			else
-				cls = findSystemClass(clazz);
-
-			return cls;
-		}
-		catch(ClassNotFoundException cnf)
-		{
-			// remember that this class doesn't exist for
-			// future reference
-			classHash.put(clazz,NO_CLASS);
-
-			throw cnf;
-		}
-	} //}}}
-
-	//{{{ getResourceAsStream() method
 	public InputStream getResourceAsStream(String name)
 	{
-		if(jar == null)
+		if(zipFile == null)
 			return null;
 
 		try
 		{
-			ZipFile zipFile = jar.getZipFile();
 			ZipEntry entry = zipFile.getEntry(name);
 			if(entry == null)
 				return getSystemResourceAsStream(name);
@@ -129,34 +96,31 @@ public class JARClassLoader extends ClassLoader
 
 			return null;
 		}
-	} //}}}
+	}
 
-	//{{{ getResource() method
 	public URL getResource(String name)
 	{
-		if(jar == null)
+		if(zipFile == null)
 			return null;
+
+		ZipEntry entry = zipFile.getEntry(name);
+		if(entry == null)
+			return getSystemResource(name);
 
 		try
 		{
-			ZipFile zipFile = jar.getZipFile();
-			ZipEntry entry = zipFile.getEntry(name);
-			if(entry == null)
-				return getSystemResource(name);
-			else
-				return new URL(getResourceAsPath(name));
+			return new URL(getResourceAsPath(name));
 		}
-		catch(IOException io)
+		catch(MalformedURLException mu)
 		{
-			Log.log(Log.ERROR,this,io);
+			Log.log(Log.ERROR,this,mu);
 			return null;
 		}
-	} //}}}
+	}
 
-	//{{{ getResourceAsPath() method
 	public String getResourceAsPath(String name)
 	{
-		if(jar == null)
+		if(zipFile == null)
 			return null;
 
 		if(!name.startsWith("/"))
@@ -164,276 +128,306 @@ public class JARClassLoader extends ClassLoader
 
 		return "jeditresource:/" + MiscUtilities.getFileName(
 			jar.getPath()) + "!" + name;
-	} //}}}
+	}
 
-	//{{{ getZipFile() method
 	/**
-	 * @deprecated Call <code>PluginJAR.getZipFile()</code> instead.
+	 * Closes the ZIP file. This plugin will no longer be usable
+	 * after this.
+	 * @since jEdit 2.6pre1
 	 */
-	public ZipFile getZipFile()
+	public void closeZipFile()
 	{
+		if(zipFile == null)
+			return;
+
 		try
 		{
-			return jar.getZipFile();
+			zipFile.close();
 		}
 		catch(IOException io)
 		{
 			Log.log(Log.ERROR,this,io);
-			return null;
 		}
-	} //}}}
 
-	//{{{ dump() method
+		zipFile = null;
+	}
+
 	/**
-	 * For debugging.
+	 * Returns the ZIP file associated with this class loader.
+	 * @since jEdit 3.0final
 	 */
-	public static void dump()
+	public ZipFile getZipFile()
 	{
-		Log.log(Log.DEBUG,JARClassLoader.class,
-			"Total instances created: " + INDEX);
-		Log.log(Log.DEBUG,JARClassLoader.class,
-			"Live instances: " + live);
-		synchronized(classHash)
+		return zipFile;
+	}
+
+	// package-private members
+	void startAllPlugins()
+	{
+		for(int i = 0; i < pluginClasses.size(); i++)
 		{
-			Iterator entries = classHash.entrySet().iterator();
-			while(entries.hasNext())
-			{
-				Map.Entry entry = (Map.Entry)entries.next();
-				if(entry.getValue() != NO_CLASS)
-				{
-					Log.log(Log.DEBUG,JARClassLoader.class,
-						entry.getKey() + " ==> "
-						+ entry.getValue());
-				}
-			}
-		}
-	} //}}}
-
-	//{{{ toString() method
-	public String toString()
-	{
-		if(jar == null)
-			return "<anonymous>(" + id + ")";
-		else
-			return jar.getPath() + " (" + id + ")";
-	} //}}}
-
-	//{{{ findResources() method
-	protected Enumeration findResources(String name) throws IOException
-	{
-		class SingleElementEnumeration implements Enumeration
-		{
-			private Object element;
-
-			public SingleElementEnumeration(Object element)
-			{
-				this.element = element;
-			}
-
-			public boolean hasMoreElements()
-			{
-				return (element != null);
-			}
-
-			public Object nextElement()
-			{
-				if(element != null)
-				{
-					Object retval = element;
-					element = null;
-					return retval;
-				}
-				else
-					throw new NoSuchElementException();
-			}
-		}
-
-		URL resource = getResource(name);
-		return new SingleElementEnumeration(resource);
-	} //}}}
-
-	//{{{ finalize() method
-	protected void finalize()
-	{
-		live--;
-	} //}}}
-
-	//{{{ Package-private members
-
-	//{{{ JARClassLoader constructor
-	/**
-	 * @since jEdit 4.2pre1
-	 */
-	JARClassLoader(PluginJAR jar)
-	{
-		this();
-		this.jar = jar;
-	} //}}}
-
-	//{{{ activate() method
-	void activate()
-	{
-		String[] classes = jar.getClasses();
-		if(classes != null)
-		{
-			for(int i = 0; i < classes.length; i++)
-			{
-				classHash.put(classes[i],this);
-			}
-		}
-	} //}}}
-
-	//{{{ deactivate() method
-	void deactivate()
-	{
-		String[] classes = jar.getClasses();
-		if(classes == null)
-			return;
-
-		for(int i = 0; i < classes.length; i++)
-		{
-			Object loader = classHash.get(classes[i]);
-			if(loader == this)
-				classHash.remove(classes[i]);
-			else
-				/* two plugins provide same class! */;
-		}
-	} //}}}
-
-	//}}}
-
-	//{{{ Private members
-
-	// used to mark non-existent classes in class hash
-	private static final Object NO_CLASS = new Object();
-
-	private static int INDEX;
-	private static int live;
-	private static Hashtable classHash = new Hashtable();
-
-	private int id;
-	private PluginJAR jar;
-
-	//{{{ _loadClass() method
-	/**
-	 * Load class from this JAR only.
-	 */
-	private synchronized Class _loadClass(String clazz, boolean resolveIt)
-		throws ClassNotFoundException
-	{
-		jar.activatePlugin();
-
-		synchronized(this)
-		{
-			Class cls = findLoadedClass(clazz);
-			if(cls != null)
-			{
-				if(resolveIt)
-					resolveClass(cls);
-				return cls;
-			}
-
-			String name = MiscUtilities.classToFile(clazz);
+			String name = (String)pluginClasses.elementAt(i);
+			name = MiscUtilities.fileToClass(name);
 
 			try
 			{
-				definePackage(clazz);
-				ZipFile zipFile = jar.getZipFile();
-				ZipEntry entry = zipFile.getEntry(name);
-
-				if(entry == null)
-					throw new ClassNotFoundException(clazz);
-
-				InputStream in = zipFile.getInputStream(entry);
-
-				int len = (int)entry.getSize();
-				byte[] data = new byte[len];
-				int success = 0;
-				int offset = 0;
-				while(success < len)
-				{
-					len -= success;
-					offset += success;
-					success = in.read(data,offset,len);
-					if(success == -1)
-					{
-						Log.log(Log.ERROR,this,"Failed to load class "
-							+ clazz + " from " + zipFile.getName());
-						throw new ClassNotFoundException(clazz);
-					}
-				}
-
-				cls = defineClass(clazz,data,0,data.length);
-
-				if(resolveIt)
-					resolveClass(cls);
-
-				return cls;
+				loadPluginClass(name);
 			}
-			catch(IOException io)
+			catch(Throwable t)
 			{
-				Log.log(Log.ERROR,this,io);
+				Log.log(Log.ERROR,this,"Error while starting plugin " + name);
+				Log.log(Log.ERROR,this,t);
 
-				throw new ClassNotFoundException(clazz);
+				jar.addPlugin(new EditPlugin.Broken(name));
+				String[] args = { name, t.toString() };
+				GUIUtilities.error(null,"plugin.start-error",args);
 			}
 		}
-	} //}}}
-
-	//{{{ definePackage(clazz) method
-	private void definePackage(String clazz) throws IOException 
-	{
-		int idx = clazz.lastIndexOf('.');
-		if (idx != -1) {		
-			String name = clazz.substring(0, idx);
-			if (getPackage(name) == null) definePackage(name, new JarFile(jar.getFile()).getManifest());
-		}
-	} //}}}
-	
-	//{{{ getMfValue() method
-	private String getMfValue(Attributes sectionAttrs, Attributes mainAttrs, Attributes.Name name) 
-	{
-		String value=null;
-		if (sectionAttrs != null)
-			value = sectionAttrs.getValue(name);
-		else if (mainAttrs != null) {
-			value = mainAttrs.getValue(name);
-		}
-		return value;
 	}
-	//}}}
-	
-	//{{{ definePackage(packageName, manifest) method
-	private void definePackage(String name, Manifest mf) 
+
+	// private members
+	private EditPlugin.JAR jar;
+	private Vector pluginClasses = new Vector();
+	private ZipFile zipFile;
+
+	private void loadPluginClass(String name)
+		throws Exception
 	{
-		if (mf==null) 
+		// Check if a plugin with the same name is already loaded
+		EditPlugin[] plugins = jEdit.getPlugins();
+
+		for(int i = 0; i < plugins.length; i++)
 		{
-			definePackage(name, null, null, null, null, null,
-			null, null);
+			if(plugins[i].getClass().getName().equals(name))
+			{
+				String[] args = { name };
+				GUIUtilities.error(null,"plugin.already-loaded",args);
+				return;
+			}
+		}
+
+		// Check dependencies
+		if(!checkDependencies(name))
+		{
+			jar.addPlugin(new EditPlugin.Broken(name));
 			return;
 		}
 
-		Attributes sa = mf.getAttributes(name.replace('.', '/') + "/");
-		Attributes ma = mf.getMainAttributes();
-		
-		URL sealBase = null;		
-		if (Boolean.valueOf(getMfValue(sa, ma, Name.SEALED)).booleanValue()) 
+		// JDK 1.1.8 throws a GPF when we do an isAssignableFrom()
+		// on an unresolved class
+		Class clazz = loadClass(name,true);
+		int modifiers = clazz.getModifiers();
+		if(!Modifier.isInterface(modifiers)
+			&& !Modifier.isAbstract(modifiers)
+			&& EditPlugin.class.isAssignableFrom(clazz))
 		{
-			try 
+			String version = jEdit.getProperty("plugin."
+				+ name + ".version");
+
+			if(version == null)
 			{
-				sealBase = jar.getFile().toURL();
-			} catch (MalformedURLException e) { }
+				Log.log(Log.WARNING,this,"Plugin " +
+					name + " doesn't"
+					+ " have a 'version' property.");
+				version = "";
+			}
+			else
+				version = " (version " + version + ")";
+
+			Log.log(Log.NOTICE,this,"Starting plugin " + name
+					+ version);
+
+			jar.addPlugin((EditPlugin)clazz.newInstance());
 		}
-		
-		Package pkg=definePackage(
-			name, 
-			getMfValue(sa, ma, Name.SPECIFICATION_TITLE), 
-			getMfValue(sa, ma, Name.SPECIFICATION_VERSION), 
-			getMfValue(sa, ma, Name.SPECIFICATION_VENDOR), 
-			getMfValue(sa, ma, Name.IMPLEMENTATION_TITLE), 
-			getMfValue(sa, ma, Name.IMPLEMENTATION_VERSION), 
-			getMfValue(sa, ma, Name.IMPLEMENTATION_VENDOR), 
-			sealBase);
-	} //}}}
-	
-	//}}}
+	}
+
+	private boolean checkDependencies(String name)
+	{
+		int i = 0;
+
+		String dep;
+		while((dep = jEdit.getProperty("plugin." + name + ".depend." + i++)) != null)
+		{
+			int index = dep.indexOf(' ');
+			if(index == -1)
+			{
+				Log.log(Log.ERROR,this,name + " has an invalid"
+					+ " dependency: " + dep);
+				return false;
+			}
+
+			String what = dep.substring(0,index);
+			String arg = dep.substring(index + 1);
+
+			if(what.equals("jdk"))
+			{
+				if(System.getProperty("java.version").compareTo(arg) < 0)
+				{
+					String[] args = { name, arg,
+						System.getProperty("java.version") };
+					GUIUtilities.error(null,"plugin.dep-jdk",args);
+					return false;
+				}
+			}
+			else if(what.equals("jedit"))
+			{
+				if(jEdit.getBuild().compareTo(arg) < 0)
+				{
+					String needs = MiscUtilities.buildToVersion(arg);
+					String[] args = { name, needs,
+						jEdit.getVersion() };
+					GUIUtilities.error(null,"plugin.dep-jedit",args);
+					return false;
+				}
+			}
+			else if(what.equals("plugin"))
+			{
+				int index2 = arg.indexOf(' ');
+				if(index2 == -1)
+				{
+					Log.log(Log.ERROR,this,name 
+						+ " has an invalid dependency: "
+						+ dep + " (version is missing)");
+					return false;
+				}
+				
+				String plugin = arg.substring(0,index2);
+				String needVersion = arg.substring(index2 + 1);
+				String currVersion = jEdit.getProperty("plugin." 
+					+ plugin + ".version");
+
+				if(currVersion == null)
+				{
+					String[] args = { name, needVersion, plugin };
+					GUIUtilities.error(null,"plugin.dep-plugin.no-version",args);
+					return false;
+				}
+
+				if(MiscUtilities.compareVersions(currVersion,
+					needVersion) < 0)
+				{
+					String[] args = { name, needVersion, plugin, currVersion };
+					GUIUtilities.error(null,"plugin.dep-plugin",args);
+					return false;
+				}
+
+				if(jEdit.getPlugin(plugin) instanceof EditPlugin.Broken)
+				{
+					String[] args = { name, plugin };
+					GUIUtilities.error(null,"plugin.dep-plugin.broken",args);
+					return false;
+				}
+			}
+			else if(what.equals("class"))
+			{
+				try
+				{
+					loadClass(arg,false);
+				}
+				catch(Exception e)
+				{
+					String[] args = { name, arg };
+					GUIUtilities.error(null,"plugin.dep-class",args);
+					return false;
+				}
+			}
+			else
+			{
+				Log.log(Log.ERROR,this,name + " has unknown"
+					+ " dependency: " + dep);
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	private Class findOtherClass(String clazz, boolean resolveIt)
+		throws ClassNotFoundException
+	{
+		EditPlugin.JAR[] jars = jEdit.getPluginJARs();
+		for(int i = 0; i < jars.length; i++)
+		{
+			JARClassLoader loader = jars[i].getClassLoader();
+			Class cls = loader.loadClass(clazz,resolveIt,
+				false);
+			if(cls != null)
+				return cls;
+		}
+
+		/* Defer to whoever loaded us (such as JShell, Echidna, etc) */
+                ClassLoader loader = getClass().getClassLoader();
+		if (loader != null)
+			return loader.loadClass(clazz);
+
+		/* Doesn't exist in any other plugin, look in system classes */
+		return findSystemClass(clazz);
+	}
+
+	private Class loadClass(String clazz, boolean resolveIt, boolean doDepencies)
+		throws ClassNotFoundException
+	{
+		Class cls = findLoadedClass(clazz);
+		if(cls != null)
+		{
+			if(resolveIt)
+				resolveClass(cls);
+			return cls;
+		}
+
+		if(zipFile == null)
+		{
+			if(doDepencies)
+				return findOtherClass(clazz,resolveIt);
+			else
+				return null;
+		}
+
+		String name = MiscUtilities.classToFile(clazz);
+
+		try
+		{
+			ZipEntry entry = zipFile.getEntry(name);
+
+			if(entry == null)
+			{
+				if(doDepencies)
+					return findOtherClass(clazz,resolveIt);
+				else
+					return null;
+			}
+
+			InputStream in = zipFile.getInputStream(entry);
+
+			int len = (int)entry.getSize();
+			byte[] data = new byte[len];
+			int success = 0;
+			int offset = 0;
+			while(success < len)
+			{
+				len -= success;
+				offset += success;
+				success = in.read(data,offset,len);
+				if(success == -1)
+				{
+					Log.log(Log.ERROR,this,"Failed to load class "
+						+ clazz + " from " + zipFile.getName());
+					throw new ClassNotFoundException(clazz);
+				}
+			}
+
+			cls = defineClass(clazz,data,0,data.length);
+
+			if(resolveIt)
+				resolveClass(cls);
+
+			return cls;
+		}
+		catch(IOException io)
+		{
+			Log.log(Log.ERROR,this,io);
+
+			throw new ClassNotFoundException(clazz);
+		}
+	}
 }

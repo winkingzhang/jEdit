@@ -1,9 +1,6 @@
 /*
  * Roster.java - A list of things to do, used in various places
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 2001, 2004 Slava Pestov
+ * Copyright (C) 2001 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,235 +19,105 @@
 
 package org.gjt.sp.jedit.pluginmgr;
 
-//{{{ Imports
-import javax.swing.SwingUtilities;
+import javax.swing.JOptionPane;
 import java.awt.Component;
 import java.io.*;
 import java.net.*;
 import java.util.zip.*;
 import java.util.*;
+import org.gjt.sp.jedit.io.VFSManager; // we use VFSManager.error() method
 import org.gjt.sp.jedit.*;
 import org.gjt.sp.util.Log;
-import org.gjt.sp.util.IOUtilities;
-//}}}
 
-/**
- * @author $Id$
- */
 class Roster
 {
-	//{{{ Roster constructor
 	Roster()
 	{
-		operations = new ArrayList();
-		toLoad = new ArrayList();
-	} //}}}
+		operations = new Vector();
+	}
 
-	//{{{ addRemove() method
-	void addRemove(String plugin)
+	void addOperation(Operation op)
 	{
-		addOperation(new Remove(plugin));
-	} //}}}
+		for(int i = 0; i < operations.size(); i++)
+		{
+			if(operations.elementAt(i).equals(op))
+				return;
+		}
 
-	//{{{ addInstall() method
-	void addInstall(String installed, String url, String installDirectory,
-		int size)
-	{
-		addOperation(new Install(installed,url,installDirectory,size));
-	} //}}}
+		operations.addElement(op);
+	}
 
-	//{{{ getOperation() method
-	public Operation getOperation(int i)
-	{
-		return (Operation)operations.get(i);
-	} //}}}
-
-	//{{{ getOperationCount() method
 	int getOperationCount()
 	{
 		return operations.size();
-	} //}}}
+	}
 
-	//{{{ isEmpty() method
 	boolean isEmpty()
 	{
-		return operations.isEmpty();
-	} //}}}
+		return operations.size() == 0;
+	}
 
-	//{{{ performOperationsInWorkThread() method
-	void performOperationsInWorkThread(PluginManagerProgress progress)
+	boolean performOperations(PluginManagerProgress progress)
 	{
 		for(int i = 0; i < operations.size(); i++)
 		{
-			Operation op = (Operation)operations.get(i);
-			op.runInWorkThread(progress);
-			progress.done();
+			Operation op = (Operation)operations.elementAt(i);
+			if(op.perform(progress))
+				progress.done(true);
+			else
+			{
+				progress.done(false);
+				return false;
+			}
 
 			if(Thread.interrupted())
-				return;
+				return false;
 		}
-	} //}}}
 
-	//{{{ performOperationsInAWTThread() method
-	void performOperationsInAWTThread(Component comp)
+		return true;
+	}
+
+	// private members
+	private Vector operations;
+
+	static interface Operation
 	{
-		for(int i = 0; i < operations.size(); i++)
-		{
-			Operation op = (Operation)operations.get(i);
-			op.runInAWTThread(comp);
-		}
+		boolean perform(PluginManagerProgress progress);
+		boolean equals(Object o);
+	}
 
-		// add the JARs before checking deps since dep check might
-		// require all JARs to be present
-		for(int i = 0; i < toLoad.size(); i++)
-		{
-			String pluginName = (String)toLoad.get(i);
-			if(jEdit.getPluginJAR(pluginName) != null)
-			{
-				Log.log(Log.WARNING,this,"Already loaded: "
-					+ pluginName);
-			}
-			else
-				jEdit.addPluginJAR(pluginName);
-		}
-
-		for(int i = 0; i < toLoad.size(); i++)
-		{
-			String pluginName = (String)toLoad.get(i);
-			PluginJAR plugin = jEdit.getPluginJAR(pluginName);
-			if(plugin != null)
-				plugin.checkDependencies();
-		}
-
-		// now activate the plugins
-		for(int i = 0; i < toLoad.size(); i++)
-		{
-			String pluginName = (String)toLoad.get(i);
-			PluginJAR plugin = jEdit.getPluginJAR(pluginName);
-			if(plugin != null)
-				plugin.activatePluginIfNecessary();
-		}
-	} //}}}
-
-	//{{{ Private members
-	private static File downloadDir;
-
-	private List operations;
-	private List toLoad;
-
-	//{{{ addOperation() method
-	private void addOperation(Operation op)
+	static class Remove implements Operation
 	{
-		for(int i = 0; i < operations.size(); i++)
-		{
-			if(operations.get(i).equals(op))
-				return;
-		}
-
-		operations.add(op);
-	} //}}}
-
-	//{{{ getDownloadDir() method
-	private static String getDownloadDir()
-	{
-		if(downloadDir == null)
-		{
-			String settings = jEdit.getSettingsDirectory();
-			if(settings == null)
-				settings = System.getProperty("user.home");
-			downloadDir = new File(MiscUtilities.constructPath(
-				settings,"PluginManager.download"));
-			downloadDir.mkdirs();
-		}
-
-		return downloadDir.getPath();
-	} //}}}
-
-	//}}}
-
-	//{{{ Operation interface
-	abstract static class Operation
-	{
-		public void runInWorkThread(PluginManagerProgress progress)
-		{
-		}
-
-		public void runInAWTThread(Component comp)
-		{
-		}
-
-		public int getMaximum()
-		{
-			return 0;
-		}
-	} //}}}
-
-	//{{{ Remove class
-	class Remove extends Operation
-	{
-		//{{{ Remove constructor
 		Remove(String plugin)
 		{
 			this.plugin = plugin;
-		} //}}}
+		}
 
-		//{{{ runInAWTThread() method
-		public void runInAWTThread(Component comp)
+		public boolean perform(PluginManagerProgress progress)
 		{
-			// close JAR file and all JARs that depend on this
-			PluginJAR jar = jEdit.getPluginJAR(plugin);
+			progress.removing(MiscUtilities.getFileName(plugin));
+
+			// close JAR file
+			EditPlugin.JAR jar = jEdit.getPluginJAR(plugin);
 			if(jar != null)
-			{
-				unloadPluginJAR(jar);
-				String cachePath = jar.getCachePath();
-				if(cachePath != null)
-					new File(cachePath).delete();
-			}
-
-			toLoad.remove(plugin);
-
-			// remove cache file
+				jar.getClassLoader().closeZipFile();
 
 			// move JAR first
 			File jarFile = new File(plugin);
 			File srcFile = new File(plugin.substring(0,plugin.length() - 4));
 
-			Log.log(Log.NOTICE,this,"Deleting " + jarFile);
-
-			boolean ok = jarFile.delete();
+			boolean ok = true;
+			ok &= deleteRecursively(jarFile);
 
 			if(srcFile.exists())
 				ok &= deleteRecursively(srcFile);
 
+			String[] args = { plugin };
 			if(!ok)
-			{
-				String[] args = { plugin };
-				GUIUtilities.error(comp,"plugin-manager.remove-failed",args);
-			}
-		} //}}}
+				GUIUtilities.error(progress,"plugin-manager.remove-failed",args);
+			return ok;
+		}
 
-		//{{{ unloadPluginJAR() method
-		/**
-		 * This should go into a public method somewhere.
-		 */
-		private void unloadPluginJAR(PluginJAR jar)
-		{
-			String[] dependents = jar.getDependentPlugins();
-			for(int i = 0; i < dependents.length; i++)
-			{
-				PluginJAR _jar = jEdit.getPluginJAR(
-					dependents[i]);
-				if(_jar != null)
-				{
-					toLoad.add(dependents[i]);
-					unloadPluginJAR(_jar);
-				}
-			}
-
-			jEdit.removePluginJAR(jar,false);
-		} //}}}
-
-		//{{{ equals() method
 		public boolean equals(Object o)
 		{
 			if(o instanceof Remove
@@ -258,9 +125,9 @@ class Roster
 				return true;
 			else
 				return false;
-		} //}}}
+		}
 
-		//{{{ Private members
+		// private members
 		private String plugin;
 
 		private boolean deleteRecursively(File file)
@@ -282,126 +149,61 @@ class Roster
 			ok &= file.delete();
 
 			return ok;
-		} //}}}
-	} //}}}
+		}
+	}
 
-	//{{{ Install class
-	class Install extends Operation
+	static class Install implements Operation
 	{
-		int size;
-
-		//{{{ Install constructor
-		Install(String installed, String url, String installDirectory,
-			int size)
+		Install(String url, String installDirectory)
 		{
 			// catch those hooligans passing null urls
 			if(url == null)
 				throw new NullPointerException();
 
-			this.installed = installed;
 			this.url = url;
 			this.installDirectory = installDirectory;
-			this.size = size;
-		} //}}}
+		}
 
-		//{{{ getMaximum() method
-		public int getMaximum()
+		public boolean perform(PluginManagerProgress progress)
 		{
-			return size;
-		} //}}}
-
-		//{{{ runInWorkThread() method
-		public void runInWorkThread(PluginManagerProgress progress)
-		{
-			String fileName = MiscUtilities.getFileName(url);
-
-			path = download(progress,fileName,url);
-		} //}}}
-
-		//{{{ runInAWTThread() method
-		public void runInAWTThread(Component comp)
-		{
-			// check if download failed
-			if(path == null)
-				return;
-
-			// if download OK, remove existing version
-			if(installed != null)
-				new Remove(installed).runInAWTThread(comp);
-
-			ZipFile zipFile = null;
-
 			try
 			{
-				zipFile = new ZipFile(path);
-
-				Enumeration e = zipFile.entries();
-				while(e.hasMoreElements())
+				String fileName = MiscUtilities.getFileName(url);
+				progress.downloading(fileName);
+				String path = download(progress,fileName,url);
+				if(path == null)
 				{
-					ZipEntry entry = (ZipEntry)e.nextElement();
-					String name = entry.getName().replace('/',File.separatorChar);
-					File file = new File(installDirectory,name);
-					if(entry.isDirectory())
-						file.mkdirs();
-					else
-					{
-						new File(file.getParent()).mkdirs();
-						InputStream in = null;
-						FileOutputStream out = null;
-						try
-						{
-							in = zipFile.getInputStream(entry);
-							out = new FileOutputStream(file);
-							IOUtilities.copyStream(4096,
-								null,
-								in,
-								out,false);
-						}
-						finally
-						{
-							IOUtilities.closeQuietly(in);
-							IOUtilities.closeQuietly(out);
-						}
-						if(file.getName().toLowerCase().endsWith(".jar"))
-							toLoad.add(file.getPath());
-					}
+					// interrupted download
+					return false;
 				}
+
+				progress.installing(fileName);
+				install(progress,path,installDirectory);
+
+				return true;
 			}
 			catch(InterruptedIOException iio)
 			{
+				// do nothing, user clicked 'Stop'
+				return false;
 			}
-			catch(final IOException io)
+			catch(IOException io)
 			{
 				Log.log(Log.ERROR,this,io);
 
 				String[] args = { io.getMessage() };
-				GUIUtilities.error(null,"ioerror",args);
+				VFSManager.error(progress,"ioerror",args);
+
+				return false;
 			}
 			catch(Exception e)
 			{
 				Log.log(Log.ERROR,this,e);
-			}
-			finally
-			{
-				try
-				{
-					if(zipFile != null)
-						zipFile.close();
-				}
-				catch(IOException io)
-				{
-					Log.log(Log.ERROR,this,io);
-				}
 
-				if(jEdit.getBooleanProperty(
-					"plugin-manager.deleteDownloads"))
-				{
-					new File(path).delete();
-				}
+				return false;
 			}
-		} //}}}
+		}
 
-		//{{{ equals() method
 		public boolean equals(Object o)
 		{
 			if(o instanceof Install
@@ -412,71 +214,106 @@ class Roster
 			}
 			else
 				return false;
-		} //}}}
+		}
 
-		//{{{ Private members
-		private String installed;
+		// private members
 		private String url;
 		private String installDirectory;
-		private String path;
 
-		//{{{ download() method
 		private String download(PluginManagerProgress progress,
-			String fileName, String url)
+			String fileName, String url) throws Exception
 		{
-			try
+			URLConnection conn = new URL(url).openConnection();
+			progress.setMaximum(Math.max(0,conn.getContentLength()));
+
+			String path = MiscUtilities.constructPath(getDownloadDir(),fileName);
+
+			if(!copy(progress,conn.getInputStream(),
+				new FileOutputStream(path),true,true))
+				return null;
+
+			return path;
+		}
+
+		private boolean install(PluginManagerProgress progress,
+			String path, String dir) throws Exception
+		{
+			progress.setMaximum(1);
+
+			ZipFile zipFile = new ZipFile(path);
+			Enumeration enum = zipFile.entries();
+			while(enum.hasMoreElements())
 			{
-				String host = jEdit.getProperty("plugin-manager.mirror.id");
-				if (host == null || host.equals(MirrorList.Mirror.NONE))
-					host = "default";
-				
-				String path = MiscUtilities.constructPath(getDownloadDir(),fileName);
-				URLConnection conn = new URL(url).openConnection();
-				progress.setStatus(jEdit.getProperty("plugin-manager.progress",new String[] {fileName, host}));
-				InputStream in = null;
-				FileOutputStream out = null;
-				try {
-					in = conn.getInputStream();
-					out = new FileOutputStream(path);
-					if(!IOUtilities.copyStream(progress,in,out,true))
-						return null;
-				}
-				finally
+				ZipEntry entry = (ZipEntry)enum.nextElement();
+				String name = entry.getName().replace('/',File.separatorChar);
+				File file = new File(dir,name);
+				if(entry.isDirectory())
+					file.mkdirs();
+				else
 				{
-					IOUtilities.closeQuietly(in);
-					IOUtilities.closeQuietly(out);
+					new File(file.getParent()).mkdirs();
+					copy(progress,zipFile.getInputStream(entry),
+						new FileOutputStream(file),false,false);
 				}
-				
-				return path;
 			}
-			catch(InterruptedIOException iio)
-			{
-				// do nothing, user clicked 'Stop'
-				return null;
-			}
-			catch(final IOException io)
-			{
-				Log.log(Log.ERROR,this,io);
 
-				SwingUtilities.invokeLater(new Runnable()
+			new File(path).delete();
+
+			progress.setValue(1);
+
+			return true;
+		}
+
+		private boolean copy(PluginManagerProgress progress,
+			InputStream in, OutputStream out, boolean canStop,
+			boolean doProgress) throws Exception
+		{
+			in = new BufferedInputStream(in);
+			out = new BufferedOutputStream(out);
+
+			byte[] buf = new byte[4096];
+			int copied = 0;
+loop:			for(;;)
+			{
+				int count = in.read(buf,0,buf.length);
+				if(count == -1)
+					break loop;
+
+				if(doProgress)
 				{
-					public void run()
-					{
-						String[] args = { io.getMessage() };
-						GUIUtilities.error(null,"ioerror",args);
-					}
-				});
+					copied += count;
+					progress.setValue(copied);
+				}
 
-				return null;
+				out.write(buf,0,count);
+				if(canStop && Thread.interrupted())
+				{
+					in.close();
+					out.close();
+					return false;
+				}
 			}
-			catch(Exception e)
+
+			in.close();
+			out.close();
+			return true;
+		}
+
+		static File downloadDir;
+
+		static String getDownloadDir()
+		{
+			if(downloadDir == null)
 			{
-				Log.log(Log.ERROR,this,e);
-
-				return null;
+				String settings = jEdit.getSettingsDirectory();
+				if(settings == null)
+					settings = System.getProperty("user.home");
+				downloadDir = new File(MiscUtilities.constructPath(
+					settings,"PluginManager.download"));
+				downloadDir.mkdirs();
 			}
-		} //}}}
 
-		//}}}
-	} //}}}
+			return downloadDir.getPath();
+		}
+	}
 }

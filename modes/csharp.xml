@@ -7,35 +7,26 @@
 		<PROPERTY NAME="commentStart" VALUE="/*" />
 		<PROPERTY NAME="commentEnd" VALUE="*/" />
 		<PROPERTY NAME="lineComment" VALUE="//" />
-
-		<!-- Auto indent -->
 		<PROPERTY NAME="indentOpenBrackets" VALUE="{" />
 		<PROPERTY NAME="indentCloseBrackets" VALUE="}" />
-		<PROPERTY NAME="unalignedOpenBrackets" VALUE="(" />
-		<PROPERTY NAME="unalignedCloseBrackets" VALUE=")" />
-		<PROPERTY NAME="indentNextLine"
-			VALUE="\s*(((if|while)\s*\(|else\s*|else\s+if\s*\(|for\s*\(.*\))[^{;]*)" />
-		<PROPERTY NAME="unindentThisLine"
-			VALUE="^.*(default:\s*|case.*:.*)$" />
-		<PROPERTY NAME="electricKeys" VALUE=":" />
+		<PROPERTY NAME="indentPrevLine" VALUE="\s*(((if|while)\s*\(|else|case)[^;]*|for\s*\(.*)" />
+		<PROPERTY NAME="doubleBracketIndent" VALUE="false" />
+		<PROPERTY NAME="noWordSep" VALUE="_" />
 	</PROPS>
-	<RULES ESCAPE="\"
-		IGNORE_CASE="FALSE"
-		HIGHLIGHT_DIGITS="TRUE"
-		DIGIT_RE="(0x[\p{XDigit}]+[lL]?|[\p{Digit}]+(e[\p{Digit}]*)?[lLdDfF]?)">
+	<RULES ESCAPE="\" HIGHLIGHT_DIGITS="TRUE" IGNORE_CASE="FALSE">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
 
 		<SPAN TYPE="COMMENT1">
 			<BEGIN>/*</BEGIN>
 			<END>*/</END>
 		</SPAN>
 
-		<!-- DocComments may have XML in them -->
-		<EOL_SPAN TYPE="COMMENT3" DELEGATE="DOC_COMMENT">///</EOL_SPAN>
-
-		<EOL_SPAN TYPE="COMMENT2">//</EOL_SPAN>
+		<EOL_SPAN TYPE="COMMENT1">//</EOL_SPAN>
 
 		<!-- verbatim strings -->
-		<SPAN TYPE="LITERAL3" NO_LINE_BREAK="FALSE" NO_ESCAPE="TRUE">
+		<SPAN TYPE="LITERAL1" NO_LINE_BREAK="FALSE">
 			<BEGIN>@"</BEGIN>
 			<END>"</END>
 		</SPAN>
@@ -71,6 +62,7 @@
 		<SEQ TYPE="OPERATOR">,</SEQ>
 		<SEQ TYPE="OPERATOR">.</SEQ>
 		<SEQ TYPE="OPERATOR">!</SEQ>
+		<SEQ TYPE="NULL">)</SEQ>
 		<SEQ TYPE="OPERATOR">[</SEQ>
 		<SEQ TYPE="OPERATOR">]</SEQ>
 		<SEQ TYPE="OPERATOR">+</SEQ>
@@ -89,7 +81,7 @@
 
 		<MARK_PREVIOUS TYPE="FUNCTION" EXCLUDE_MATCH="TRUE">(</MARK_PREVIOUS>
 
-		<KEYWORDS>
+		<KEYWORDS IGNORE_CASE="FALSE">
 			<KEYWORD1>abstract</KEYWORD1>
 			<KEYWORD1>as</KEYWORD1>
 			<KEYWORD1>base</KEYWORD1>
@@ -170,19 +162,6 @@
 			<LITERAL2>this</LITERAL2>
 			<LITERAL2>true</LITERAL2>
 		</KEYWORDS>
-	</RULES>
-
-	<RULES SET="DOC_COMMENT" DEFAULT="COMMENT3" IGNORE_CASE="TRUE">
-		<!-- XML comments -->
-		<SPAN TYPE="COMMENT1">
-			<BEGIN>&lt;--</BEGIN>
-			<END>--&gt;</END>
-		</SPAN>
-		<!-- XML tags -->
-		<SPAN TYPE="MARKUP" DELEGATE="xml::TAGS">
-			<BEGIN>&lt;</BEGIN>
-			<END>&gt;</END>
-		</SPAN>
 	</RULES>
 </MODE>
 

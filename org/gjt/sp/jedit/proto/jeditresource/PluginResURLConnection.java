@@ -1,8 +1,5 @@
 /*
  * PluginResURLConnection.java - jEdit plugin resource URL connection
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 1999, 2000, 2001 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
@@ -22,11 +19,9 @@
 
 package org.gjt.sp.jedit.proto.jeditresource;
 
-//{{{ Imports
 import java.io.*;
 import java.net.*;
 import org.gjt.sp.jedit.*;
-//}}}
 
 public class PluginResURLConnection extends URLConnection
 {
@@ -69,15 +64,16 @@ public class PluginResURLConnection extends URLConnection
 			}
 			else
 			{
-				PluginJAR[] plugins = jEdit.getPluginJARs();
+				EditPlugin.JAR[] plugins = jEdit.getPluginJARs();
 				for(int i = 0; i < plugins.length; i++)
 				{
-					PluginJAR jar = plugins[i];
-					String jarName =MiscUtilities.getFileName(jar.getPath()).toLowerCase(); 
-					if(plugin.equalsIgnoreCase(jarName))
+					EditPlugin.JAR jar = plugins[i];
+					if(MiscUtilities.getFileName(jar.getPath())
+						.equalsIgnoreCase(plugin))
 					{
 						in = jar.getClassLoader()
-						            .getResourceAsStream(resource);
+							.getResourceAsStream(
+							resource);
 						break;
 					}
 				}
@@ -85,7 +81,7 @@ public class PluginResURLConnection extends URLConnection
 
 			if(in == null)
 			{
-				throw new IOException("Resource not found: " + plugin + "!" 
+				throw new IOException("Resource not found: "
 					+ resource);
 			}
 
@@ -104,17 +100,16 @@ public class PluginResURLConnection extends URLConnection
 	{
 		if(name.equals("content-type"))
 		{
-			String lcResource = resource.toLowerCase();
-			if(lcResource.endsWith(".html"))
+			if(resource.endsWith(".html"))
 				return "text/html";
-			else if(lcResource.endsWith(".txt"))
+			else if(resource.endsWith(".txt"))
 				return "text/plain";
-			else if(lcResource.endsWith(".rtf"))
+			else if(resource.endsWith(".rtf"))
 				return "text/rtf";
-			else if(lcResource.endsWith(".gif"))
+			else if(resource.endsWith(".gif"))
 				return "image/gif";
-			else if(lcResource.endsWith(".jpg")
-				|| lcResource.endsWith(".jpeg"))
+			else if(resource.endsWith(".jpg")
+				|| resource.endsWith(".jpeg"))
 				return "image/jpeg";
 			else
 				return null;

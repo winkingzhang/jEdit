@@ -55,26 +55,7 @@ void insertDate()
 		+ " @" + (int)swatch + " /Internet Time/");
 }
 
-if(buffer.isReadOnly())
-	Macros.error(view, "Buffer is read-only.");
-else
-	insertDate();
-
-/*
-	Macro index data (in DocBook format)
-
-<listitem>
-    <para><filename>Insert_Date.bsh</filename></para>
-    <abstract><para>
-        Inserts the current date and time in the current buffer.
-    </para></abstract>
-    <para>
-        The inserted text includes a representation of the time in the
-        <quote>Internet Time</quote> format.
-    </para>
-</listitem>
-
-*/
+insertDate();
 
 // end Insert_Date.bsh
 

@@ -1,9 +1,6 @@
 /*
  * FileVFS.java - Local filesystem VFS
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1998, 2005 Slava Pestov
+ * Copyright (C) 1998, 1999, 2000, 2001 Slava Pestov
  * Portions copyright (C) 1998, 1999, 2000 Peter Graves
  *
  * This program is free software; you can redistribute it and/or
@@ -23,15 +20,12 @@
 
 package org.gjt.sp.jedit.io;
 
-//{{{ Imports
 import javax.swing.filechooser.FileSystemView;
 import java.awt.Component;
 import java.io.*;
-import java.text.*;
-import java.util.Date;
+import java.util.Vector;
 import org.gjt.sp.jedit.*;
 import org.gjt.sp.util.Log;
-//}}}
 
 /**
  * Local filesystem VFS.
@@ -40,391 +34,275 @@ import org.gjt.sp.util.Log;
  */
 public class FileVFS extends VFS
 {
+	public static final String BACKED_UP_PROPERTY = "FileVFS__backedUp";
 	public static final String PERMISSIONS_PROPERTY = "FileVFS__perms";
 
-	//{{{ FileVFS method
 	public FileVFS()
 	{
-		super("file",READ_CAP | WRITE_CAP | DELETE_CAP
-			| RENAME_CAP | MKDIR_CAP | LOW_LATENCY_CAP
-			| ((OperatingSystem.isCaseInsensitiveFS())
-			? CASE_INSENSITIVE_CAP : 0),
-			new String[] { EA_TYPE, EA_SIZE, EA_STATUS,
-			EA_MODIFIED });
-	} //}}}
+		super("file");
+		fsView = FileSystemView.getFileSystemView();
+	}
 
-	//{{{ getParentOfPath() method
+	public int getCapabilities()
+	{
+		return READ_CAP | WRITE_CAP | BROWSE_CAP | DELETE_CAP
+			| RENAME_CAP | MKDIR_CAP;
+	}
+
 	public String getParentOfPath(String path)
 	{
-		if(OperatingSystem.isDOSDerived())
+		// handle Windows differently
+		if(File.separatorChar == '\\')
 		{
 			if(path.length() == 2 && path.charAt(1) == ':')
 				return FileRootsVFS.PROTOCOL + ":";
 			else if(path.length() == 3 && path.endsWith(":\\"))
 				return FileRootsVFS.PROTOCOL + ":";
-			else if(path.startsWith("\\\\") && path.indexOf('\\',2) == -1)
-				return path;
 		}
 
-		return super.getParentOfPath(path);
-	} //}}}
+		if(path.equals("/"))
+			return FileRootsVFS.PROTOCOL + ":";
 
-	//{{{ constructPath() method
+		/* File[] roots = fsView.getRoots();
+		for(int i = 0; i < roots.length; i++)
+		{
+			if(roots[i].getPath().equals(path))
+				return FileRootsVFS.PROTOCOL + ":";
+		} */
+
+		return MiscUtilities.getParentOfPath(path);
+	}
+
 	public String constructPath(String parent, String path)
 	{
-		if(parent.endsWith(File.separator)
-			|| parent.endsWith("/"))
-			return parent + path;
-		else
-			return parent + File.separator + path;
-	} //}}}
+		return MiscUtilities.constructPath(parent,path);
+	}
 
-	//{{{ getFileSeparator() method
 	public char getFileSeparator()
 	{
 		return File.separatorChar;
-	} //}}}
+	}
 
-	//{{{ getTwoStageSaveName() method
-	/**
-	 * Returns a temporary file name based on the given path.
-	 *
-	 * <p>If the directory where the file would be created cannot be
-	 * written (i.e., no new files can be created in that directory),
-	 * this method returns <code>null</code>.</p>
-	 *
-	 * @param path The path name
-	 */
-	public String getTwoStageSaveName(String path)
+	public boolean load(View view, Buffer buffer, String path)
 	{
-		File parent = new File(getParentOfPath(path));
-		return (parent.canWrite())
-			? super.getTwoStageSaveName(path)
-			: null;
-	} //}}}
+		File file = buffer.getFile();
 
-	//{{{ save() method
-	public boolean save(View view, Buffer buffer, String path)
-	{
-		if(OperatingSystem.isUnix())
-		{
-			int permissions = getPermissions(buffer.getPath());
-			Log.log(Log.DEBUG,this,buffer.getPath() + " has permissions 0"
-				+ Integer.toString(permissions,8));
-			buffer.setIntegerProperty(PERMISSIONS_PROPERTY,permissions);
-		}
-
-		return super.save(view,buffer,path);
-	} //}}}
-
-	//{{{ insert() method
-	public boolean insert(View view, Buffer buffer, String path)
-	{
-		File file = new File(path);
-
-		//{{{ Check if file is valid
 		if(!file.exists())
+		{
+			buffer.setNewFile(true);
 			return false;
+		}
+		else
+			buffer.setReadOnly(!file.canWrite());
 
 		if(file.isDirectory())
 		{
-			VFSManager.error(view,file.getPath(),
-				"ioerror.open-directory",null);
+			String[] args = { file.getPath() };
+			GUIUtilities.error(view,"open-directory",args);
+			buffer.setNewFile(false);
 			return false;
 		}
 
 		if(!file.canRead())
 		{
-			VFSManager.error(view,file.getPath(),
-				"ioerror.no-read",null);
+			String[] args = { file.getPath() };
+			GUIUtilities.error(view,"no-read",args);
+			buffer.setNewFile(false);
 			return false;
-		} //}}}
+		}
 
-		return super.insert(view,buffer,path);
-	} //}}}
+		return super.load(view,buffer,path);
+	}
 
-	//{{{ _canonPath() method
-	/**
-	 * Returns the canonical form if the specified path name. For example,
-	 * <code>~</code> might be expanded to the user's home directory.
-	 * @param session The session
-	 * @param path The path
-	 * @param comp The component that will parent error dialog boxes
-	 * @exception IOException if an I/O error occurred
-	 * @since jEdit 4.0pre2
-	 */
-	public String _canonPath(Object session, String path, Component comp)
-		throws IOException
+	public boolean save(View view, Buffer buffer, String path)
 	{
-		return MiscUtilities.canonPath(path);
-	} //}}}
+		// can't call buffer.getFile() here because this
+		// method is called *before* setPath()
+		File file = new File(path);
 
-	//{{{ LocalFile class
-	public static class LocalFile extends VFSFile
+		// Apparently, certain broken OSes (like Micro$oft Windows)
+		// can mess up directories if they are write()'n to
+		if(file.isDirectory())
+		{
+			String[] args = { file.getPath() };
+			GUIUtilities.error(view,"save-directory",args);
+			return false;
+		}
+
+		// Check that we can actually write to the file
+		if((file.exists() && !file.canWrite())
+			|| (!file.exists() && !new File(file.getParent()).canWrite()))
+		{
+			String[] args = { path };
+			GUIUtilities.error(view,"no-write",args);
+			return false;
+		}
+
+		// On Unix, preserve permissions
+		int permissions = getPermissions(buffer.getPath());
+		Log.log(Log.DEBUG,this,buffer.getPath() + " has permissions 0"
+			+ Integer.toString(permissions,8));
+		buffer.putProperty(PERMISSIONS_PROPERTY,new Integer(permissions));
+
+		return super.save(view,buffer,path);
+	}
+
+	public boolean insert(View view, Buffer buffer, String path)
 	{
-		private File file;
+		File file = new File(path);
 
-		// use system default short format
-		public static DateFormat DATE_FORMAT
-			= DateFormat.getInstance();
+		if(!file.exists())
+			return false;
 
-		/**
-		 * @deprecated Call getModified() instead.
-		 */
-		public long modified;
-
-		public LocalFile(File file)
+		if(file.isDirectory())
 		{
-			this.file = file;
-
-			/* These attributes are fetched relatively
-			quickly. The rest are lazily filled in. */
-			setName(file.getName());
-			String path = file.getPath();
-			setPath(path);
-			setDeletePath(path);
-			setHidden(file.isHidden());
-			setType(file.isDirectory()
-				? VFSFile.DIRECTORY
-				: VFSFile.FILE);
+			String[] args = { file.getPath() };
+			GUIUtilities.error(view,"open-directory",args);
+			return false;
 		}
 
-		public String getExtendedAttribute(String name)
+		if(!file.canRead())
 		{
-			if(name.equals(EA_MODIFIED))
-				return DATE_FORMAT.format(new Date(modified));
-			else
-				return super.getExtendedAttribute(name);
-		}
-		
-		protected void fetchAttrs()
-		{
-			if(fetchedAttrs())
-				return;
-
-			super.fetchAttrs();
-
-			setSymlinkPath(MiscUtilities.resolveSymlinks(
-				file.getPath()));
-			setReadable(file.canRead());
-			setWriteable(file.canWrite());
-			setLength(file.length());
-			setModified(file.lastModified());
-		}
-		
-		public String getSymlinkPath()
-		{
-			fetchAttrs();
-			return super.getSymlinkPath();
-		}
-		
-		public long getLength()
-		{
-			fetchAttrs();
-			return super.getLength();
-		}
-		
-		public boolean isReadable()
-		{
-			fetchAttrs();
-			return super.isReadable();
-		}
-		
-		public boolean isWriteable()
-		{
-			fetchAttrs();
-			return super.isWriteable();
+			String[] args = { file.getPath() };
+			GUIUtilities.error(view,"no-read",args);
+			return false;
 		}
 
-		public long getModified()
-		{
-			return modified;
-		}
+		return super.load(view,buffer,path);
+	}
 
-		public void setModified(long modified)
-		{
-			this.modified = modified;
-		}
-	} //}}}
-
-	//{{{ _listFiles() method
-	public VFSFile[] _listFiles(Object session, String path,
+	public VFS.DirectoryEntry[] _listDirectory(Object session, String path,
 		Component comp)
 	{
-		//{{{ Windows work around
-		/* On Windows, paths of the form X: list the last *working
-		 * directory* on that drive. To list the root of the drive,
-		 * you must use X:\.
+		/* Fix for the bug where listing a drive letter on Windows
+		 * doesn't work. On Windows, paths of the form X: list the
+		 * last *working directory* on that drive. To list the root
+		 * of the drive, you must use X:\.
 		 *
 		 * However, the VFS browser and friends strip off trailing
 		 * path separators, for various reasons. So to work around
 		 * that, we add a '\' to drive letter paths on Windows.
 		 */
-		if(OperatingSystem.isWindows())
+		if(File.separatorChar == '\\')
 		{
 			if(path.length() == 2 && path.charAt(1) == ':')
 				path = path.concat(File.separator);
-		} //}}}
+		}
 
 		File directory = new File(path);
-		File[] list = null;
-		if(directory.exists())
-			list = fsView.getFiles(directory,false);
-
+		String[] list = directory.list();
 		if(list == null)
 		{
-			VFSManager.error(comp,path,"ioerror.directory-error-nomsg",null);
+			String[] pp = { path };
+			VFSManager.error(comp,"directory-error-nomsg",pp);
 			return null;
 		}
 
-		VFSFile[] list2 = new VFSFile[list.length];
+		Vector list2 = new Vector();
 		for(int i = 0; i < list.length; i++)
-			list2[i] = new LocalFile(list[i]);
+		{
+			String name = list[i];
+			String _path;
+			if(path.endsWith(File.separator))
+				_path = path + name;
+			else
+				_path = path + File.separatorChar + name;
 
-		return list2;
-	} //}}}
+			File file = new File(_path);
 
-	//{{{ _getFile() method
-	public VFSFile _getFile(Object session, String path,
+			int type;
+			if(file.isDirectory())
+				type = VFS.DirectoryEntry.DIRECTORY;
+			else
+				type = VFS.DirectoryEntry.FILE;
+
+			VFS.DirectoryEntry entry = new VFS.DirectoryEntry(
+				name,_path,_path,type,file.length(),
+				fsView.isHiddenFile(file));
+
+			list2.addElement(entry);
+		}
+
+		VFS.DirectoryEntry[] retVal = new VFS.DirectoryEntry[list2.size()];
+		list2.copyInto(retVal);
+		return retVal;
+	}
+
+	public DirectoryEntry _getDirectoryEntry(Object session, String path,
 		Component comp)
 	{
-		if(path.equals("/") && OperatingSystem.isUnix())
-		{
-			return new VFS.DirectoryEntry(path,path,path,
-				VFSFile.DIRECTORY,0L,false);
-		}
+		// workaround for Java bug where paths with trailing / return
+		// null getName()
+		if(path.endsWith("/") || path.endsWith(File.separator))
+			path = path.substring(0,path.length() - 1);
 
 		File file = new File(path);
 		if(!file.exists())
 			return null;
 
-		return new LocalFile(file);
-	} //}}}
+		int type;
+		if(file.isDirectory())
+			type = VFS.DirectoryEntry.DIRECTORY;
+		else
+			type = VFS.DirectoryEntry.FILE;
 
-	//{{{ _delete() method
+		return new VFS.DirectoryEntry(file.getName(),path,path,type,
+			file.length(),fsView.isHiddenFile(file));
+	}
+
 	public boolean _delete(Object session, String path, Component comp)
 	{
-		File file = new File(path);
-		// do some platforms throw exceptions if the file does not exist
-		// when we ask for the canonical path?
-		String canonPath;
-		try
-		{
-			canonPath = file.getCanonicalPath();
-		}
-		catch(IOException io)
-		{
-			canonPath = path;
-		}
-
-		boolean retVal = file.delete();
+		boolean retVal = new File(path).delete();
 		if(retVal)
-			VFSManager.sendVFSUpdate(this,canonPath,true);
+			VFSManager.sendVFSUpdate(this,path,true);
 		return retVal;
-	} //}}}
+	}
 
-	//{{{ _rename() method
 	public boolean _rename(Object session, String from, String to,
 		Component comp)
 	{
 		File _to = new File(to);
-
-		String toCanonPath;
-		try
-		{
-			toCanonPath = _to.getCanonicalPath();
-		}
-		catch(IOException io)
-		{
-			toCanonPath = to;
-		}
-
-		// this is needed because on OS X renaming to a non-existent
-		// directory causes problems
-		File parent = new File(_to.getParent());
-		if(parent.exists())
-		{
-			if(!parent.isDirectory())
-				return false;
-		}
-		else
-		{
-			parent.mkdirs();
-			if(!parent.exists())
-				return false;
-		}
-
-		File _from = new File(from);
-
-		String fromCanonPath;
-		try
-		{
-			fromCanonPath = _from.getCanonicalPath();
-		}
-		catch(IOException io)
-		{
-			fromCanonPath = from;
-		}
-
-		// Case-insensitive fs workaround
-		if(!fromCanonPath.equalsIgnoreCase(toCanonPath))
-			_to.delete();
-
-		boolean retVal = _from.renameTo(_to);
-		VFSManager.sendVFSUpdate(this,fromCanonPath,true);
-		VFSManager.sendVFSUpdate(this,toCanonPath,true);
+		_to.delete();
+		boolean retVal = new File(from).renameTo(_to);
+		VFSManager.sendVFSUpdate(this,from,true);
+		VFSManager.sendVFSUpdate(this,to,true);
 		return retVal;
-	} //}}}
+	}
 
-	//{{{ _mkdir() method
 	public boolean _mkdir(Object session, String directory, Component comp)
 	{
-		String parent = getParentOfPath(directory);
-		if(!new File(parent).exists())
-		{
-			if(!_mkdir(session,parent,comp))
-				return false;
-		}
-
-		File file = new File(directory);
-
-		boolean retVal = file.mkdir();
-		String canonPath;
-		try
-		{
-			canonPath = file.getCanonicalPath();
-		}
-		catch(IOException io)
-		{
-			canonPath = directory;
-		}
-		VFSManager.sendVFSUpdate(this,canonPath,true);
+		boolean retVal = new File(directory).mkdirs();
+		VFSManager.sendVFSUpdate(this,directory,true);
 		return retVal;
-	} //}}}
+	}
 
-	//{{{ _backup() method
 	public void _backup(Object session, String path, Component comp)
 		throws IOException
 	{
 		// Fetch properties
-		int backups = jEdit.getIntegerProperty("backups",1);
+		int backups;
+		try
+		{
+			backups = Integer.parseInt(jEdit.getProperty(
+				"backups"));
+		}
+		catch(NumberFormatException nf)
+		{
+			Log.log(Log.ERROR,this,nf);
+			backups = 1;
+		}
 
 		if(backups == 0)
 			return;
 
-		String backupPrefix = jEdit.getProperty("backup.prefix");
-		String backupSuffix = jEdit.getProperty("backup.suffix");
+		String backupPrefix = jEdit.getProperty("backup.prefix","");
+		String backupSuffix = jEdit.getProperty("backup.suffix","~");
 
-		String backupDirectory = jEdit.getProperty("backup.directory");
-
-		int backupTimeDistance = jEdit.getIntegerProperty("backup.minTime",0);
 		File file = new File(path);
 
-		if (!file.exists())
-			return;
-
-		// Check for backup.directory, and create that
+		// Check for backup.directory property, and create that
 		// directory if it doesn't exist
+		String backupDirectory = jEdit.getProperty("backup.directory");
 		if(backupDirectory == null || backupDirectory.length() == 0)
 			backupDirectory = file.getParent();
 		else
@@ -443,11 +321,38 @@ public class FileVFS extends VFS
 				dir.mkdirs();
 		}
 
-		MiscUtilities.saveBackup(file,backups,backupPrefix,
-			backupSuffix,backupDirectory,backupTimeDistance);
-	} //}}}
+		String name = file.getName();
 
-	//{{{ _createInputStream() method
+		// If backups is 1, create ~ file
+		if(backups == 1)
+		{
+			file.renameTo(new File(backupDirectory,
+				backupPrefix + name + backupSuffix));
+		}
+		// If backups > 1, move old ~n~ files, create ~1~ file
+		else
+		{
+			new File(backupDirectory,
+				backupPrefix + name + backupSuffix
+				+ backups + backupSuffix).delete();
+
+			for(int i = backups - 1; i > 0; i--)
+			{
+				File backup = new File(backupDirectory,
+					backupPrefix + name + backupSuffix
+					+ i + backupSuffix);
+
+				backup.renameTo(new File(backupDirectory,
+					backupPrefix + name + backupSuffix
+					+ (i+1) + backupSuffix));
+			}
+
+			file.renameTo(new File(backupDirectory,
+				backupPrefix + name + backupSuffix
+				+ "1" + backupSuffix));
+		}
+	}
+
 	public InputStream _createInputStream(Object session, String path,
 		boolean ignoreErrors, Component comp) throws IOException
 	{
@@ -462,29 +367,29 @@ public class FileVFS extends VFS
 			else
 				throw io;
 		}
-	} //}}}
+	}
 
-	//{{{ _createOutputStream() method
 	public OutputStream _createOutputStream(Object session, String path,
 		Component comp) throws IOException
 	{
-		return new FileOutputStream(path);
-	} //}}}
+		OutputStream retVal = new FileOutputStream(path);
 
-	//{{{ _saveComplete() method
-	public void _saveComplete(Object session, Buffer buffer, String path,
-		Component comp)
+		// commented out for now, because updating VFS browsers
+		// every time file is saved gets annoying
+		//VFSManager.sendVFSUpdate(this,path,true);
+		return retVal;
+	}
+
+	public void _saveComplete(Object session, Buffer buffer, Component comp)
 	{
-		int permissions = buffer.getIntegerProperty(PERMISSIONS_PROPERTY,0);
-		setPermissions(path,permissions);
-	} //}}}
-
-	//{{{ Permission preservation code
+		int permissions = ((Integer)buffer.getProperty(PERMISSIONS_PROPERTY))
+			.intValue();
+		setPermissions(buffer.getPath(),permissions);
+	}
 
 	/** Code borrowed from j text editor (http://www.armedbear.org) */
 	/** I made some changes to make it support suid, sgid and sticky files */
 
-	//{{{ getPermissions() method
 	/**
 	 * Returns numeric permissions of a file. On non-Unix systems, always
 	 * returns zero.
@@ -494,10 +399,7 @@ public class FileVFS extends VFS
 	{
 		int permissions = 0;
 
-		if(jEdit.getBooleanProperty("chmodDisabled"))
-			return permissions;
-
-		if(OperatingSystem.isUnix())
+		if(isUnix)
 		{
 			String[] cmdarray = { "ls", "-ld", path };
 
@@ -513,8 +415,39 @@ public class FileVFS extends VFS
 				{
 					String s = output.substring(1, 10);
 
-					permissions = MiscUtilities
-						.parsePermissions(s);
+					if(s.length() == 9)
+					{
+						if(s.charAt(0) == 'r')
+							permissions += 0400;
+						if(s.charAt(1) == 'w')
+							permissions += 0200;
+						if(s.charAt(2) == 'x')
+							permissions += 0100;
+						else if(s.charAt(2) == 's')
+							permissions += 04100;
+						else if(s.charAt(2) == 'S')
+							permissions += 04000;
+						if(s.charAt(3) == 'r')
+							permissions += 040;
+						if(s.charAt(4) == 'w')
+							permissions += 020;
+						if(s.charAt(5) == 'x')
+							permissions += 010;
+						else if(s.charAt(5) == 's')
+							permissions += 02010;
+						else if(s.charAt(5) == 'S')
+							permissions += 02000;
+						if(s.charAt(6) == 'r')
+							permissions += 04;
+						if(s.charAt(7) == 'w')
+							permissions += 02;
+						if(s.charAt(8) == 'x')
+							permissions += 01;
+						else if(s.charAt(8) == 't')
+							permissions += 01001;
+						else if(s.charAt(8) == 'T')
+							permissions += 01000;
+					}
 				}
 			}
 
@@ -527,9 +460,8 @@ public class FileVFS extends VFS
 		}
 
 		return permissions;
-	} //}}}
+	}
 
-	//{{{ setPermissions() method
 	/**
 	 * Sets numeric permissions of a file. On non-Unix platforms,
 	 * does nothing.
@@ -537,12 +469,9 @@ public class FileVFS extends VFS
 	 */
 	public static void setPermissions(String path, int permissions)
 	{
-		if(jEdit.getBooleanProperty("chmodDisabled"))
-			return;
-
 		if(permissions != 0)
 		{
-			if(OperatingSystem.isUnix())
+			if(isUnix)
 			{
 				String[] cmdarray = { "chmod", Integer.toString(permissions, 8), path };
 
@@ -552,12 +481,9 @@ public class FileVFS extends VFS
 					process.getInputStream().close();
 					process.getOutputStream().close();
 					process.getErrorStream().close();
-					// Jun 9 2004 12:40 PM
-					// waitFor() hangs on some Java
-					// implementations.
-					/* int exitCode = process.waitFor();
+					int exitCode = process.waitFor();
 					if(exitCode != 0)
-						Log.log(Log.NOTICE,FileVFS.class,"chmod exited with code " + exitCode); */
+						Log.log(Log.NOTICE,FileVFS.class,"chmod exited with code " + exitCode);
 				}
 
 				// Feb 4 2000 5:30 PM
@@ -568,11 +494,41 @@ public class FileVFS extends VFS
 				}
 			}
 		}
-	} //}}}
+	}
+	
+	// private members
+	private FileSystemView fsView;
+	private static boolean isUnix;
 
-	//}}}
+	static
+	{
+		// If the file separator is '/', the OS is either Unix,
+		// MacOS X, or MacOS.
+		if(File.separatorChar == '/')
+		{
+			String osName = System.getProperty("os.name");
+			if(osName.indexOf("MacOS") != -1)
+			{
+				if(osName.indexOf("X") != -1)
+				{
+					// MacOS X is Unix.
+					isUnix = true;
+				}
+				else
+				{
+					// Classic MacOS is definately not Unix.
+					isUnix = false;
+				}
+			}
+			else
+			{
+				// Unix.
+				isUnix = true;
+			}
+		}
 
-	//{{{ Private members
-	private static FileSystemView fsView = FileSystemView.getFileSystemView();
-	//}}}
+		Log.log(Log.DEBUG,FileVFS.class,"Unix operating system "
+			+ (isUnix ? "detected; will" : "not detected; will not")
+			+ " use permission-preserving code");
+	}
 }

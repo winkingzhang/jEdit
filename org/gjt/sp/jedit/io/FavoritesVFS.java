@@ -1,9 +1,6 @@
 /*
  * FavoritesVFS.java - Stores frequently-visited directory locations
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 2000, 2004 Slava Pestov
+ * Copyright (C) 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,12 +19,9 @@
 
 package org.gjt.sp.jedit.io;
 
-//{{{ Imports
 import java.awt.Component;
-import java.util.*;
-import org.gjt.sp.jedit.msg.DynamicMenuChanged;
-import org.gjt.sp.jedit.*;
-//}}}
+import java.util.Vector;
+import org.gjt.sp.jedit.jEdit;
 
 /**
  * A VFS used for remembering frequently-visited directories. Listing it
@@ -42,171 +36,133 @@ public class FavoritesVFS extends VFS
 {
 	public static final String PROTOCOL = "favorites";
 
-	//{{{ FavoritesVFS constructor
 	public FavoritesVFS()
 	{
-		super("favorites",DELETE_CAP | LOW_LATENCY_CAP,
-			new String[] { EA_TYPE });
+		super("favorites");
 
 		/* addToFavorites(), which is a static method
 		 * (for convinience) needs an instance of the
 		 * VFS to pass to VFSManager.sendVFSUpdate(),
 		 * hence this hack. */
 		instance = this;
-	} //}}}
+	}
 
-	//{{{ getParentOfPath() method
+	public int getCapabilities()
+	{
+		// BROWSE_CAP not set because we don't want the VFS browser
+		// to create the default 'favorites' button on the tool bar
+		return /* BROWSE_CAP | */ DELETE_CAP;
+	}
+
 	public String getParentOfPath(String path)
 	{
 		return PROTOCOL + ":";
-	} //}}}
+	}
 
-	//{{{ _listFiles() method
-	public VFSFile[] _listFiles(Object session, String url,
+	public VFS.DirectoryEntry[] _listDirectory(Object session, String url,
 		Component comp)
 	{
-		return getFavorites();
-	} //}}}
+		synchronized(lock)
+		{
+			VFS.DirectoryEntry[] retVal = new VFS.DirectoryEntry[favorites.size()];
+			for(int i = 0; i < retVal.length; i++)
+			{
+				String favorite = (String)favorites.elementAt(i);
+				retVal[i] = _getDirectoryEntry(session,favorite,comp);
+			}
+			return retVal;
+		}
+	}
 
-	//{{{ _getFile() method
-	public VFSFile _getFile(Object session, String path,
+	public DirectoryEntry _getDirectoryEntry(Object session, String path,
 		Component comp)
 	{
-		// does it matter that this doesn't set the type correctly?
-		return new Favorite(path,VFSFile.DIRECTORY);
-	} //}}}
+		return new VFS.DirectoryEntry(path,path,"favorites:" + path,
+					VFS.DirectoryEntry.DIRECTORY,
+					0L,false);
+	}
 
-	//{{{ _delete() method
 	public boolean _delete(Object session, String path, Component comp)
 	{
 		synchronized(lock)
 		{
 			path = path.substring(PROTOCOL.length() + 1);
+			favorites.removeElement(path);
 
-			Iterator iter = favorites.iterator();
-			while(iter.hasNext())
-			{
-				if(((Favorite)iter.next()).getPath()
-					.equals(path))
-				{
-					iter.remove();
-					VFSManager.sendVFSUpdate(this,PROTOCOL
-						+ ":",false);
-					EditBus.send(new DynamicMenuChanged(
-						"favorites"));
-					return true;
-				}
-			}
+			VFSManager.sendVFSUpdate(this,PROTOCOL + ":",false);
 		}
 
-		return false;
-	} //}}}
+		return true;
+	}
 
-	//{{{ loadFavorites() method
 	public static void loadFavorites()
 	{
 		synchronized(lock)
 		{
-			favorites = new LinkedList();
-
 			String favorite;
 			int i = 0;
 			while((favorite = jEdit.getProperty("vfs.favorite." + i)) != null)
 			{
-				favorites.add(new Favorite(favorite,
-					jEdit.getIntegerProperty("vfs.favorite."
-					+ i + ".type",
-					VFSFile.DIRECTORY)));
+				favorites.addElement(favorite);
 				i++;
 			}
 		}
-	} //}}}
+	}
 
-	//{{{ addToFavorites() method
-	public static void addToFavorites(String path, int type)
+	public static void addToFavorites(String path)
 	{
 		synchronized(lock)
 		{
-			if(favorites == null)
-				loadFavorites();
-
-			Iterator iter = favorites.iterator();
-			while(iter.hasNext())
-			{
-				if(((Favorite)iter.next()).getPath().equals(path))
-					return;
-			}
-
-			favorites.add(new Favorite(path,type));
+			favorites.addElement(path);
 
 			VFSManager.sendVFSUpdate(instance,PROTOCOL + ":",false);
-			EditBus.send(new DynamicMenuChanged("favorites"));
 		}
-	} //}}}
+	}
 
-	//{{{ saveFavorites() method
 	public static void saveFavorites()
 	{
 		synchronized(lock)
 		{
-			if(favorites == null)
-				return;
-
-			int i = 0;
-			Iterator iter = favorites.iterator();
-			while(iter.hasNext())
+			for(int i = 0; i < favorites.size(); i++)
 			{
-				Favorite e = ((Favorite)iter.next());
 				jEdit.setProperty("vfs.favorite." + i,
-					e.getPath());
-				jEdit.setIntegerProperty("vfs.favorite." + i
-					+ ".type",e.getType());
-
-				i++;
+					(String)favorites.elementAt(i));
 			}
 			jEdit.unsetProperty("vfs.favorite." + favorites.size());
-			jEdit.unsetProperty("vfs.favorite." + favorites.size()
-				+ ".type");
 		}
-	} //}}}
+	}
 
-	//{{{ getFavorites() method
-	public static VFSFile[] getFavorites()
-	{
-		synchronized(lock)
-		{
-			if(favorites == null)
-				loadFavorites();
-
-			return (VFSFile[])favorites.toArray(
-				new VFSFile[favorites.size()]);
-		}
-	} //}}}
-
-	//{{{ Private members
+	// private members
 	private static FavoritesVFS instance;
 	private static Object lock = new Object();
-	private static List favorites;
-	//}}}
-
-	//{{{ Favorite class
-	static class Favorite extends VFSFile
-	{
-		Favorite(String path, int type)
-		{
-			super(path,path,PROTOCOL + ":" + path,type,0,false);
-		}
-
-		public String getExtendedAttribute(String name)
-		{
-			if(name.equals(EA_TYPE))
-				return super.getExtendedAttribute(name);
-			else
-			{
-				// don't want it to show "0 bytes" for size,
-				// etc.
-				return null;
-			}
-		}
-	} //}}}
+	private static Vector favorites = new Vector();
 }
+
+/*
+ * Change Log:
+ * $Log$
+ * Revision 1.1  2001/09/02 05:38:16  spestov
+ * Initial revision
+ *
+ * Revision 1.7  2000/11/11 02:59:30  sp
+ * FTP support moved out of the core into a plugin
+ *
+ * Revision 1.6  2000/08/29 07:47:13  sp
+ * Improved complete word, type-select in VFS browser, bug fixes
+ *
+ * Revision 1.5  2000/08/27 02:06:52  sp
+ * Filter combo box changed to a text field in VFS browser, passive mode FTP toggle
+ *
+ * Revision 1.4  2000/08/20 07:29:31  sp
+ * I/O and VFS browser improvements
+ *
+ * Revision 1.3  2000/08/06 09:44:27  sp
+ * VFS browser now has a tree view, rename command
+ *
+ * Revision 1.2  2000/08/05 07:16:12  sp
+ * Global options dialog box updated, VFS browser now supports right-click menus
+ *
+ * Revision 1.1  2000/08/03 07:43:42  sp
+ * Favorites added to browser, lots of other stuff too
+ *
+ */

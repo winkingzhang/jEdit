@@ -1,8 +1,5 @@
 /*
  * Mode.java - jEdit editing mode
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 1998, 1999, 2000 Slava Pestov
  * Copyright (C) 1999 mike dillon
  *
@@ -23,24 +20,23 @@
 
 package org.gjt.sp.jedit;
 
-//{{{ Imports
+import gnu.regexp.*;
 import java.util.Hashtable;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 import org.gjt.sp.jedit.syntax.TokenMarker;
 import org.gjt.sp.util.Log;
-//}}}
 
 /**
  * An edit mode defines specific settings for editing some type of file.
  * One instance of this class is created for each supported edit mode.
+ * In most cases, instances of this class can be created directly, however
+ * if the edit mode needs to define custom indentation behaviour,
+ * subclassing is required.
  *
  * @author Slava Pestov
  * @version $Id$
  */
 public class Mode
 {
-	//{{{ Mode constructor
 	/**
 	 * Creates a new edit mode.
 	 *
@@ -52,9 +48,8 @@ public class Mode
 	{
 		this.name = name;
 		props = new Hashtable();
-	} //}}}
+	}
 
-	//{{{ init() method
 	/**
 	 * Initializes the edit mode. Should be called after all properties
 	 * are loaded and set.
@@ -66,54 +61,46 @@ public class Mode
 			String filenameGlob = (String)getProperty("filenameGlob");
 			if(filenameGlob != null && filenameGlob.length() != 0)
 			{
-				filenameRE = Pattern.compile(MiscUtilities.globToRE(filenameGlob),
-							     Pattern.CASE_INSENSITIVE);
+				filenameRE = new RE(MiscUtilities.globToRE(
+					filenameGlob),RE.REG_ICASE);
 			}
 
 			String firstlineGlob = (String)getProperty("firstlineGlob");
 			if(firstlineGlob != null && firstlineGlob.length() != 0)
 			{
-				firstlineRE = Pattern.compile(MiscUtilities.globToRE(firstlineGlob),
-							      Pattern.CASE_INSENSITIVE);
+				firstlineRE = new RE(MiscUtilities.globToRE(
+					firstlineGlob),RE.REG_ICASE);
 			}
 		}
-		catch(PatternSyntaxException re)
+		catch(REException re)
 		{
 			Log.log(Log.ERROR,this,"Invalid filename/firstline"
 				+ " globs in mode " + name);
 			Log.log(Log.ERROR,this,re);
 		}
+	}
 
-		// Fix for this bug:
-		// -- Put a mode into the user dir with the same name as one
-		//    on the system dir.
-		// -- Reload edit modes.
-		// -- Old mode from system dir still used for highlighting
-		//    until jEdit restart.
-		marker = null;
-	} //}}}
-
-	//{{{ getTokenMarker() method
 	/**
-	 * Returns the token marker for this mode.
+	 * Returns the token marker specified with
+	 * <code>setTokenMarker()</code>. Should only be called by
+	 * <code>TokenMarker.getExternalRuleSet()</code>.
 	 */
 	public TokenMarker getTokenMarker()
 	{
 		loadIfNecessary();
 		return marker;
-	} //}}}
+	}
 
-	//{{{ setTokenMarker() method
 	/**
-	 * Sets the token marker for this mode.
+	 * Sets the token marker for this mode. This token marker will be
+	 * cloned to obtain new instances.
 	 * @param marker The new token marker
 	 */
 	public void setTokenMarker(TokenMarker marker)
 	{
 		this.marker = marker;
-	} //}}}
+	}
 
-	//{{{ loadIfNecessary() method
 	/**
 	 * Loads the mode from disk if it hasn't been loaded already.
 	 * @since jEdit 2.5pre3
@@ -122,9 +109,8 @@ public class Mode
 	{
 		if(marker == null)
 			jEdit.loadMode(this);
-	} //}}}
+	}
 
-	//{{{ getProperty() method
 	/**
 	 * Returns a mode property.
 	 * @param key The property name
@@ -171,9 +157,8 @@ public class Mode
 		}
 		else
 			return null;
-	} //}}}
+	}
 
-	//{{{ getBooleanProperty() method
 	/**
 	 * Returns the value of a boolean property.
 	 * @param key The property name
@@ -187,9 +172,8 @@ public class Mode
 			return true;
 		else
 			return false;
-	} //}}}
+	}
 
-	//{{{ setProperty() method
 	/**
 	 * Sets a mode property.
 	 * @param key The property name
@@ -198,9 +182,8 @@ public class Mode
 	public void setProperty(String key, Object value)
 	{
 		props.put(key,value);
-	} //}}}
+	}
 
-	//{{{ unsetProperty() method
 	/**
 	 * Unsets a mode property.
 	 * @param key The property name
@@ -209,34 +192,8 @@ public class Mode
 	public void unsetProperty(String key)
 	{
 		props.remove(key);
-	} //}}}
+	}
 
-	//{{{ setProperties() method
-	/**
-	 * Should only be called by <code>XModeHandler</code>.
-	 * @since jEdit 4.0pre3
-	 */
-	public void setProperties(Hashtable props)
-	{
-		if(props == null)
-			props = new Hashtable();
-
-		// need to carry over file name and first line globs because they are
-		// not given to us by the XMode handler, but instead are filled in by
-		// the catalog loader.
-		String filenameGlob = (String)this.props.get("filenameGlob");
-		String firstlineGlob = (String)this.props.get("firstlineGlob");
-		String filename = (String)this.props.get("file");
-		this.props = props;
-		if(filenameGlob != null)
-			props.put("filenameGlob",filenameGlob);
-		if(firstlineGlob != null)
-			props.put("firstlineGlob",firstlineGlob);
-		if(filename != null)
-			props.put("file",filename);
-	} //}}}
-
-	//{{{ accept() method
 	/**
 	 * Returns if the edit mode is suitable for editing the specified
 	 * file. The buffer name and first line is checked against the
@@ -248,38 +205,35 @@ public class Mode
 	 */
 	public boolean accept(String fileName, String firstLine)
 	{
-		if(filenameRE != null && filenameRE.matcher(fileName).matches())
+		if(filenameRE != null && filenameRE.isMatch(fileName))
 			return true;
 
-		if(firstlineRE != null && firstlineRE.matcher(firstLine).matches())
+		if(firstlineRE != null && firstlineRE.isMatch(firstLine))
 			return true;
 
 		return false;
-	} //}}}
+	}
 
-	//{{{ getName() method
 	/**
 	 * Returns the internal name of this edit mode.
 	 */
 	public String getName()
 	{
 		return name;
-	} //}}}
+	}
 
-	//{{{ toString() method
 	/**
 	 * Returns a string representation of this edit mode.
 	 */
 	public String toString()
 	{
-		return name;
-	} //}}}
+		return getClass().getName() + "[" + getName() + "]";
+	}
 
-	//{{{ Private members
+	// private members
 	private String name;
 	private Hashtable props;
-	private Pattern firstlineRE;
-	private Pattern filenameRE;
+	private RE firstlineRE;
+	private RE filenameRE;
 	private TokenMarker marker;
-	//}}}
 }

@@ -1,9 +1,6 @@
 /*
  * DirectoryListSet.java - Directory list matcher
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1999, 2000, 2001 Slava Pestov
+ * Copyright (C) 1999, 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,14 +19,11 @@
 
 package org.gjt.sp.jedit.search;
 
-//{{{ Imports
-import javax.swing.SwingUtilities;
-import java.awt.Component;
+import gnu.regexp.RE;
 import java.io.*;
-import org.gjt.sp.jedit.io.*;
+import java.util.Vector;
 import org.gjt.sp.jedit.*;
 import org.gjt.sp.util.Log;
-//}}}
 
 /**
  * Recursive directory search.
@@ -38,127 +32,118 @@ import org.gjt.sp.util.Log;
  */
 public class DirectoryListSet extends BufferListSet
 {
-	//{{{ DirectoryListSet constructor
 	public DirectoryListSet(String directory, String glob, boolean recurse)
 	{
+		super(listFiles(directory,glob,recurse));
+
 		this.directory = directory;
 		this.glob = glob;
 		this.recurse = recurse;
-		this.skipBinary = jEdit.getBooleanProperty("search.skipBinary.toggle");
-		this.skipHidden = jEdit.getBooleanProperty("search.skipHidden.toggle");
-	} //}}}
+	}
 
-
-
-	//{{{ getDirectory() method
 	public String getDirectory()
 	{
 		return directory;
-	} //}}}
+	}
 
-	//{{{ setDirectory() method
-	/**
-	 * @since jEdit 4.2pre1
-	 */
-	public void setDirectory(String directory)
-	{
-		this.directory = directory;
-		invalidateCachedList();
-	} //}}}
-
-	//{{{ getFileFilter() method
 	public String getFileFilter()
 	{
 		return glob;
-	} //}}}
+	}
 
-	//{{{ setFileFilter() method
-	/**
-	 * @since jEdit 4.2pre1
-	 */
-	public void setFileFilter(String glob)
-	{
-		this.glob = glob;
-		invalidateCachedList();
-	} //}}}
-
-	//{{{ isRecursive() method
 	public boolean isRecursive()
 	{
 		return recurse;
-	} //}}}
+	}
 
-	//{{{ setRecursive() method
 	/**
-	 * @since jEdit 4.2pre1
+	 * Returns the BeanShell code that will recreate this file set.
+	 * @since jEdit 2.7pre3
 	 */
-	public void setRecursive(boolean recurse)
-	{
-		this.recurse = recurse;
-		invalidateCachedList();
-	} //}}}
-
-	//{{{ getCode() method
 	public String getCode()
 	{
 		return "new DirectoryListSet(\"" + MiscUtilities.charsToEscapes(directory)
 			+ "\",\"" + MiscUtilities.charsToEscapes(glob) + "\","
 			+ recurse + ")";
-	} //}}}
+	}
 
-	//{{{ _getFiles() method
-	protected String[] _getFiles(final Component comp)
-	{
-		this.skipBinary = jEdit.getBooleanProperty("search.skipBinary.toggle");
-		this.skipHidden = jEdit.getBooleanProperty("search.skipHidden.toggle");
-		final VFS vfs = VFSManager.getVFSForPath(directory);
-		Object session;
-		if(SwingUtilities.isEventDispatchThread())
-		{
-			session = vfs.createVFSSession(directory,comp);
-		}
-		else
-		{
-			final Object[] returnValue = new Object[1];
-
-			try
-			{
-				SwingUtilities.invokeAndWait(new Runnable()
-				{
-					public void run()
-					{
-						returnValue[0] = vfs.createVFSSession(directory,comp);
-					}
-				});
-			}
-			catch(Exception e)
-			{
-				Log.log(Log.ERROR,this,e);
-			}
-
-			session = returnValue[0];
-		}
-
-		if(session == null)
-			return null;
-
-		try
-		{
-			return vfs._listDirectory(session,directory,glob,recurse,comp, skipBinary, skipHidden);
-		}
-		catch(IOException io)
-		{
-			VFSManager.error(comp,directory,"ioerror",new String[]
-				{ io.toString() });
-			return null;
-		}
-	} //}}}
-
-	//{{{ Private members
+	// private members
 	private String directory;
 	private String glob;
 	private boolean recurse;
-	private boolean skipHidden;
-	private boolean skipBinary;
-	//}}}
+
+	/**
+	 * One day this might become public and move to MiscUtilities...
+	 */
+	private static Vector listFiles(String directory,
+		String glob, boolean recurse)
+	{
+		Log.log(Log.DEBUG,DirectoryListSet.class,"Searching in "
+			+ directory);
+		Vector files = new Vector(50);
+
+		RE filter;
+		try
+		{
+			filter = new RE(MiscUtilities.globToRE(glob));
+		}
+		catch(Exception e)
+		{
+			Log.log(Log.ERROR,DirectoryListSet.class,e);
+			return files;
+		}
+
+		listFiles(new Vector(),files,new File(directory),filter,recurse);
+
+		return files;
+	}
+
+	private static void listFiles(Vector stack, Vector files,
+		File directory, RE filter, boolean recurse)
+	{
+		if(stack.contains(directory))
+		{
+			Log.log(Log.ERROR,DirectoryListSet.class,
+				"Recursion in DirectoryListSet: "
+				+ directory.getPath());
+			return;
+		}
+		else
+			stack.addElement(directory);
+		
+		String[] _files = directory.list();
+		if(_files == null)
+			return;
+
+		MiscUtilities.quicksort(_files,new MiscUtilities.StringICaseCompare());
+
+		for(int i = 0; i < _files.length; i++)
+		{
+			String name = _files[i];
+
+			File file = new File(directory,name);
+			if(file.isDirectory())
+			{
+				if(recurse)
+					listFiles(stack,files,file,filter,recurse);
+			}
+			else
+			{
+				if(!filter.isMatch(name))
+					continue;
+
+				Log.log(Log.DEBUG,DirectoryListSet.class,file.getPath());
+				String canonPath;
+				try
+				{
+					canonPath = file.getCanonicalPath();
+				}
+				catch(IOException io)
+				{
+					canonPath = file.getPath();
+				}
+				files.addElement(canonPath);
+			}
+		}
+	}
 }

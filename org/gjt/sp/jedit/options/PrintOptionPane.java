@@ -1,9 +1,6 @@
 /*
  * PrintOptionPane.java - Printing options panel
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 2000, 2002 Slava Pestov
+ * Copyright (C) 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,25 +19,42 @@
 
 package org.gjt.sp.jedit.options;
 
-//{{{ Imports
 import javax.swing.*;
+import java.awt.*;
 import org.gjt.sp.jedit.gui.FontSelector;
 import org.gjt.sp.jedit.*;
-//}}}
 
 public class PrintOptionPane extends AbstractOptionPane
 {
-	//{{{ PrintOptionPane constructor
 	public PrintOptionPane()
 	{
 		super("print");
-	} //}}}
+	}
 
-	//{{{ _init() method
+	// protected members
 	protected void _init()
 	{
 		/* Font */
-		font = new FontSelector(jEdit.getFontProperty("print.font"));
+		String _fontFamily = jEdit.getProperty("print.font");
+		int _fontStyle;
+		try
+		{
+			_fontStyle = Integer.parseInt(jEdit.getProperty("print.fontstyle"));
+		}
+		catch(NumberFormatException nf)
+		{
+			_fontStyle = Font.PLAIN;
+		}
+		int _fontSize;
+		try
+		{
+			_fontSize = Integer.parseInt(jEdit.getProperty("print.fontsize"));
+		}
+		catch(NumberFormatException nf)
+		{
+			_fontSize = 14;
+		}
+		font = new FontSelector(new Font(_fontFamily,_fontStyle,_fontSize));
 		addComponent(jEdit.getProperty("options.print.font"),font);
 
 		/* Header */
@@ -61,64 +75,57 @@ public class PrintOptionPane extends AbstractOptionPane
 		printLineNumbers.setSelected(jEdit.getBooleanProperty("print.lineNumbers"));
 		addComponent(printLineNumbers);
 
-		/* Color */
+		/* Syntax highlighting */
+		style = new JCheckBox(jEdit.getProperty("options.print"
+			+ ".style"));
+		style.setSelected(jEdit.getBooleanProperty("print.style"));
+		addComponent(style);
+
 		color = new JCheckBox(jEdit.getProperty("options.print"
 			+ ".color"));
 		color.setSelected(jEdit.getBooleanProperty("print.color"));
 		addComponent(color);
 
-		/* Tab size */
-		String[] tabSizes = { "2", "4", "8" };
-		tabSize = new JComboBox(tabSizes);
-		tabSize.setEditable(true);
-		tabSize.setSelectedItem(jEdit.getProperty("print.tabSize"));
-		addComponent(jEdit.getProperty("options.print.tabSize"),tabSize);
+		addSeparator("options.print.margins");
 
+		/* Margins */
+		topMargin = new JTextField(jEdit.getProperty("print.margin.top"));
+		addComponent(jEdit.getProperty("options.print.margin.top"),topMargin);
+		leftMargin = new JTextField(jEdit.getProperty("print.margin.left"));
+		addComponent(jEdit.getProperty("options.print.margin.left"),leftMargin);
+		bottomMargin = new JTextField(jEdit.getProperty("print.margin.bottom"));
+		addComponent(jEdit.getProperty("options.print.margin.bottom"),bottomMargin);
+		rightMargin = new JTextField(jEdit.getProperty("print.margin.right"));
+		addComponent(jEdit.getProperty("options.print.margin.right"),rightMargin);
+	}
 
-		/* Print Folds */
-		printFolds = new JCheckBox(jEdit.getProperty("options.print"
-			+ ".folds"));
-		printFolds.setSelected(jEdit.getBooleanProperty("print.folds",true));
-		addComponent(printFolds);
-		
-		addSeparator("options.print.workarounds");
-
-		/* Spacing workaround */
-		glyphVector = new JCheckBox(jEdit.getProperty(
-			"options.print.glyphVector"));
-		glyphVector.setSelected(jEdit.getBooleanProperty("print.glyphVector"));
-		addComponent(glyphVector);
-
-		/* Force 1.3 print dialog */
-		force13 = new JCheckBox(jEdit.getProperty(
-			"options.print.force13"));
-		force13.setSelected(jEdit.getBooleanProperty("print.force13"));
-		addComponent(force13);
-	} //}}}
-
-	//{{{ _save() method
 	protected void _save()
 	{
-		jEdit.setFontProperty("print.font",font.getFont());
+		Font _font = font.getFont();
+		jEdit.setProperty("print.font",_font.getFamily());
+		jEdit.setProperty("print.fontsize",String.valueOf(_font.getSize()));
+		jEdit.setProperty("print.fontstyle",String.valueOf(_font.getStyle()));
+
 		jEdit.setBooleanProperty("print.header",printHeader.isSelected());
 		jEdit.setBooleanProperty("print.footer",printFooter.isSelected());
 		jEdit.setBooleanProperty("print.lineNumbers",printLineNumbers.isSelected());
+		jEdit.setBooleanProperty("print.style",style.isSelected());
 		jEdit.setBooleanProperty("print.color",color.isSelected());
-		jEdit.setProperty("print.tabSize",(String)tabSize.getSelectedItem());
-		jEdit.setBooleanProperty("print.glyphVector",glyphVector.isSelected());
-		jEdit.setBooleanProperty("print.force13",force13.isSelected());
-		jEdit.setBooleanProperty("print.folds",printFolds.isSelected());
-	} //}}}
+		jEdit.setProperty("print.margin.top",topMargin.getText());
+		jEdit.setProperty("print.margin.left",leftMargin.getText());
+		jEdit.setProperty("print.margin.bottom",bottomMargin.getText());
+		jEdit.setProperty("print.margin.right",rightMargin.getText());
+	}
 
-	//{{{ Private members
+	// private members
 	private FontSelector font;
 	private JCheckBox printHeader;
 	private JCheckBox printFooter;
 	private JCheckBox printLineNumbers;
-	private JCheckBox printFolds;
+	private JCheckBox style;
 	private JCheckBox color;
-	private JComboBox tabSize;
-	private JCheckBox glyphVector;
-	private JCheckBox force13;
-	//}}}
+	private JTextField topMargin;
+	private JTextField leftMargin;
+	private JTextField bottomMargin;
+	private JTextField rightMargin;
 }

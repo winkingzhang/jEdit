@@ -1,8 +1,5 @@
 /*
  * WorkRequest.java - Runnable subclass
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
@@ -25,17 +22,9 @@ package org.gjt.sp.util;
 /**
  * A subclass of the Runnable interface.
  * @since jEdit 2.6pre1
- * @version $Id$
  */
-public abstract class WorkRequest implements Runnable, ProgressObserver
+public abstract class WorkRequest implements Runnable
 {
-	/**
-	 * If the max value is greater that <code>Integer.MAX_VALUE</code> this 
-	 * will be true and all values will be divided by 1024.
-	 * @since jEdit 4.3pre3
-	 */
-	private boolean largeValues;
-
 	/**
 	 * Sets if the request can be aborted.
 	 */
@@ -59,8 +48,7 @@ public abstract class WorkRequest implements Runnable, ProgressObserver
 
 	/**
 	 * Sets the progress value.
-	 * @param value The progress value.
-	 * @deprecated use {@link #setValue(long)}
+	 * @param status The progress value.
 	 */
 	public void setProgressValue(int value)
 	{
@@ -71,8 +59,7 @@ public abstract class WorkRequest implements Runnable, ProgressObserver
 
 	/**
 	 * Sets the maximum progress value.
-	 * @param value The progress value.
-	 * @deprecated use {@link #setMaximum(long)}
+	 * @param status The progress value.
 	 */
 	public void setProgressMaximum(int value)
 	{
@@ -80,52 +67,21 @@ public abstract class WorkRequest implements Runnable, ProgressObserver
 		if(thread instanceof WorkThread)
 			((WorkThread)thread).setProgressMaximum(value);
 	}
-
-	//{{{ setValue() method
-	/**
-	 * Update the progress value.
-	 *
-	 * @param value the new value
-	 * @since jEdit 4.3pre3
-	 */
-	public void setValue(long value)
-	{
-		Thread thread = Thread.currentThread();
-		if(thread instanceof WorkThread)
-		{
-			if (largeValues)
-			{
-				((WorkThread)thread).setProgressValue((int) (value >> 10));
-			}
-			else
-			{
-				((WorkThread)thread).setProgressValue((int) value);
-			}
-		}
-	} //}}}
-
-	//{{{ setValue() method
-	/**
-	 * Update the maximum value.
-	 *
-	 * @param value the new maximum value
-	 * @since jEdit 4.3pre3
-	 */
-	public void setMaximum(long value)
-	{
-		Thread thread = Thread.currentThread();
-		if(thread instanceof WorkThread)
-		{
-			if (value > Integer.MAX_VALUE)
-			{
-				largeValues = true;
-				((WorkThread)thread).setProgressMaximum((int) (value >> 10));
-			}
-			else
-			{
-				largeValues = false;
-				((WorkThread)thread).setProgressMaximum((int) value);
-			}
-		}
-	} //}}}
 }
+
+/*
+ * ChangeLog:
+ * $Log$
+ * Revision 1.1  2001/09/02 05:38:25  spestov
+ * Initial revision
+ *
+ * Revision 1.4  2000/10/15 04:10:35  sp
+ * bug fixes
+ *
+ * Revision 1.3  2000/07/26 07:48:46  sp
+ * stuff
+ *
+ * Revision 1.2  2000/07/22 03:27:04  sp
+ * threaded I/O improved, autosave rewrite started
+ *
+ */

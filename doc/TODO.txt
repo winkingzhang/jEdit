@@ -1,258 +1,162 @@
-[error] ExtensionManager: java.lang.ArrayIndexOutOfBoundsException: Array index out of range: 379
-[error] ExtensionManager:  at org.gjt.sp.jedit.Buffer.getLineOfOffset(Buffer.java:892)
-[error] ExtensionManager:  at errorlist.DefaultErrorSource$DefaultError.getLineNumber(DefaultErrorSource.java:510)
-[error] ExtensionManager:  at errorlist.DefaultErrorSource.findError(DefaultErrorSource.java:330)
-[error] ExtensionManager:  at errorlist.DefaultErrorSource.getLineErrors(DefaultErrorSource.java:134)
-[error] ExtensionManager:  at errorlist.ErrorHighlight.paintValidLine(ErrorHighlight.java:53)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.TextAreaExtension.paintScreenLineRange(TextAreaExtension.java:70)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.ExtensionManager.paintScreenLineRange(ExtensionManager.java:146)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.ExtensionManager.paintScreenLineRange(ExtensionManager.java:106)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.TextAreaPainter.paint(TextAreaPainter.java:699)
-
-[error] ExtensionManager: java.lang.NullPointerException
-[error] ExtensionManager:  at org.gjt.sp.jedit.Buffer.markTokens(Buffer.java:2161)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.ChunkCache.lineToChunkList(ChunkCache.java:760)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.ChunkCache.updateChunksUpTo(ChunkCache.java:635)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.ChunkCache.getLineInfo(ChunkCache.java:244)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.TextAreaPainter$PaintText.paintValidLine(TextAreaPainter.java:1039)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.TextAreaExtension.paintScreenLineRange(TextAreaExtension.java:70)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.ExtensionManager.paintScreenLineRange(ExtensionManager.java:146)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.ExtensionManager.paintScreenLineRange(ExtensionManager.java:106)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.TextAreaPainter.paint(TextAreaPainter.java:699)
-
-
 TO DO
 
-absolute path completion
++ features:
 
-does not indent properly:
+- instead of mini i/o progress, show messages in status bar: number
+  of i/o requests pending, and setMessageAndClear("foo") when i/o
+  complete
+- Jext-style undo to replace CaretUndo crap
+- select-* actions: add to selection in multi-select mode
+- appendix in plugin guide on contributing plugins
+- Macros.confirm()
+- saving a read-only file: show a confirmation dialog box
+- jEdit.get/setInteger/Color/FontProperty()
+- new document model
+- when loading plugins and such, check for settingsDir == jEditHome
+- collapse-all-folds action that calls expandFolds(1)
+- docking:
+  - each tab has a close box
+  - registerDockableWindow(name,multi) instead of named lists
+  - <name>-to-front action for multi dockables
+  - toggle-<name> action for toggling
+  - <name> action calls addDockableWindow(), no longer a toggle
+- hypersearch:
+  - in selection option
+  - new search results window for each search
+  - keyboard navigation of search results
+  - file names in bold, show number of results in that file
+  - expand all branches
+  - remove 'hypersearch results' menu item
+  - select lines with matches capability
+- smarter/better userInput() that accepts strings, not just characters
+- command to reset edit server
+- memory display in status bar, click opens memory display dialog;
+  replaces 'show free memory' macro
+- changing read-only flag in buffer options
+- configurable metal font
+- changing key bindings for ENTER, TAB, C+TAB, S+TAB, etc.
+- keymaps replace .shortcut properties
+  - loaded from $HOME/.jedit/keymaps, and jedit.jar
+  - one keymap can 'extend' another
+  - keymaps are XML files with <bind>, <unbind> tags
+  - jEdit, emacs, keymaps included, maybe others
+  - instead of hard-coded modifier swapping on MacOS, have a MacOS keymap
+- shortcuts option pane: one category for each plugin, to avoid
+  lumping all plugin actions in one list
+- syntax styles:
+  - optional underline, color can be changed
+  - style editor: check boxes next to fg, bg, underline flags; if off,
+    use default
+- abbrevs option pane: add, remove, edit buttons, don't show abbrev
+  expansion in table
+- trailingEOL property, set on load if file has a trailing newline, when
+  saving, only write a trailing newline if property is set
+- file system browser:
+  - right-click menu: show all toolbar options
+  - parent directory, parent directories menu, reload, local drives, home,
+    go to buffer directory
+  - back, forward menu items
+  - option to disable tool bar in stand-alone browser
+  - some additional keyboard shortcuts:
+    - ~ goes to home directory
+    - / goes to roots:
+    - - goes to buffer directory
+  - show directories in boldface
+  - if icons disabled, no longer append / to directory names
+  - smaller 16x16 icons
+- shift-left/shift-right: behave differently with rectangular selection
+- docking option pane: changes take effect immediately
+- option pane API changes:
+  - boolean validate() method added; if returns false, user is not allowed
+    to close dialog with 'OK' button, have to either fix values or cancel.
+  - OptionsDialog handles selective initialization of option panes;
+    AbstractOptionPane's _init() and _save() methods no longer necessary
+    and deprecated.
+- dockable view registers window
+  - RegisterChanged message added
+  - update display when shown register changes
+  - use a timer to update display of $ register every 5 seconds or so
+  - use a timer to update display of % register if it is a ClipboardRegister
+- new token types:
+  - MARKUP renamed MARKUP1
+  - MARKUP2
+  - MARKUP3
+  - MARKUP4
+  - KEYWORD4 (in addition to KEYWORD[123])
+  - LINK (highlighted with blue underline, for HTML mode and friends)
+  - INLINE (for inline scripts)
+- HTML mode:
+  - inside tags, delegate on*="..." to JavaScript mode,
+    style="..." to CSS mode
+  - better <script>/<style> handling using nested delegates
+  - inside tags: coloring different types of tags using different MARKUP
+    token types
+  - SPAN:<a:/a> delegates to A_TAG_MIX rule
+  - A_TAG_MIX rule defines normal tag rules, along with SPAN:>:< which
+    delegates to A_CONTENT_MIX rule, with default token type LINK and all
+    other usual HTML rules for tags, entities, etc.
+  - xml.mix file, can be included in other modes, defines rules for tags,
+    entities, <!, <?, and so on.
+    html.mix file, for inclusion in html, php, jsp, etc. defines rules for
+    tags, entities, <script>, <style>, <a>, etc.
+- this might be too hard: DELEGATE_TYPE attribute of SPAN rule, defines
+  token type from which default attributes are obtained for all tokens
+  inside the SPAN. eg, if a rule delegates to the javascript mode, with a
+  DELEGATE_TYPE of INLINE, and INLINE is defined as a light-gray background,
+  all tokens in the JavaScript source that do not define a background color
+  will be drawn with a light-gray background.
+- if last token of a line has a background color, remainder of line will
+  be drawn with that color
+- 'Invert Selection' command
+- after a VFSUpdate for a mode file is received, reload that mode automatically
+- after a VFSUpdate for a mode catalog is received, reload all modes
+- save markers when a buffer is closed, adding/removing markers shouldn't
+  set the dirty flag
+- per-mode encodings and line separators, to optionally override those
+  auto-detected when a buffer is loaded
+- they should be overridable on a global basis too
+- when loading a file: if the stream supports a mark, read first 16 bytes,
+  check for unicode byte order mark, push back, if one is found, set
+  encoding to Unicode automatically
+- handle missing modes more gracefully
+- better XMode entity handling (necessary for HTML mode changes described
+  above)
+- folding:
+  - needs to be improved, but I haven't thought about it yet
+- plugin manager: show all dependencies, not just first-order ones
+- removing a plugin should offer to remove the ones that depend on it too
 
-1000 [
-    [
-        [
-            [
-                50000 cons-a-lot
-            ] 4 10 make-trash
-        ] 4 10 make-trash
-    ] 4 10 make-trash 0 swap [ [ + ] when* ] tree-each drop
-] times
++ bugs:
 
-Note that this is not a complete to do list. It mostly only lists bugs
-and quirks that I need to fix eventually.
-
-splitting messes up last physical line in the newly created text area
-
-console: cd / repeatedly on windows
-
-ok [error] ExtensionManager: java.lang.NullPointerException
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.StructureMatcher$Highlight.getOffsets(StructureMatcher.java:181)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.StructureMatcher$Highlight.paintHighlight(StructureMatcher.java:207)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.StructureMatcher$Highlight.paintValidLine(StructureMatcher.java:147)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.TextAreaExtension.paintScreenLineRange(TextAreaExtension.java:70)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.ExtensionManager.paintScreenLineRange(ExtensionManager.java:146)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.ExtensionManager.paintScreenLineRange(ExtensionManager.java:106)
-[error] ExtensionManager:  at org.gjt.sp.jedit.textarea.TextAreaPainter.paint(TextAreaPainter.java:699)
-
-+ text area:
-
-  - click&drag breaks fast scroll
-  - format: doesn't wrap right if selection starts in the middle of the
-    line
-  - ruleset importing trick
-  - expand fold: try to expand even if already expanded
-  - backspace with virtual caret: needs tweaks
-  - independent text area component
-    - gutter: has a depenency on View to do focus highlight, and Marker
-    - text area: depends on view for input handling,
-      smart home/end macro record, showing dialog boxes, abbrevs
-    - mouse handler: registers
-    - text area transfer handler: opening files dependency
-  - new file: explicit folding: type {{{: fold marker doesn't appear
-  - finish code to hide caret on user input; enter/backspace is a problem
-    maybe listen for KeyTyped instead
-  - indent folding: fold marker not always updated
-  - format: preserve comment chars at start
-  - tabs to spaces with rect select
-  - input methods
-  - remove-marker, select-next/prev-marker/bracket
-  - format -- instead of \n\n, what if it has \n   \n?
-  - DnD still dosn't work as expected when draging from the same buffer,
-  but differen text area (for example droping at the position where drag
-  was started erases text)- no support for vertical pasting
-  - anoying cursor blinking (responsible for this is scrolling option :
-  textArea.moveCaretPosition(pos,JEditTextArea.ELECTRIC_SCROLL) in
-  dragOver() method)
-
-Ideas: a lot of the code in the jedit text area can be simplified
-   for example, i'm not sure we really need the ChunkCache anymore
-   just keep the chunks for the currently
-   painting line around, to speed up the multiple offsetToX() 
-   calls that happen during painting
-   also, you might want to rip out the text area's 
-   scrolling code, and put in a JScrollPane
-
-
-+ auto indent:
-
-  - ? : do not unindent
-  - deep indent
-  - Common Lisp &body forms
-  - pressing enter: carry over * from prev line in javadoc
-  - javadoc indent: if prev line was /* or *, unindent if prev line is
-  */
-  if(foo)
-    while(bar)
-    {
-      //
-    }
-  <--- cursor here
-  - option to disable electric keys
-  - unindentThisAndFollowing
-  - indent & syntax tokens
-
-+ vfs browser:
-
-  - test keyboard completion with expanded/collapsed tree
-  - test keyboard completion with high latency VFS
-  - fsb default size
-  - don't show 'new directory' in favorites:
-  - file system browser column widths are not saved
-  
-+ misc:
-
-  - kill ring still being reversed
-  - jEdit.checkBufferStatus() fucks with split panes
-  
-  - there is a comment in browser.actions.xml:
-  /* NOTE: I do NOT want plugins creating check box menu items
-   * in jEdit 4.2! The API is not stable, note the _comp hack...
-   * in 4.3 I will finish the full action API refactoring and
-   * IS_SELECTED blocks in browser actions will have access to
-   * the browser variable just like the CODE block above.
-   *
-   * Love, Slava */
-
-  - option to disable buffer local properties
-  - CA+PLUS +: bad
-  - jedit -encoding
-  - goToBuffer() -- if any parent has zero height or zero width...
-  - deferred loading API for macro handlers
-  - S+INS, etc in swing controls
-  - vfs: a way of running awt requests not all at end
-  - wrapped dock buttons broken
-
-+ beanshell:
-
-  ; after else if()
-  longs not read correctly if prefixed with 0x
-
-+ docs:
-
-- vfs browser changes
-- auto indent
-- save help index
-- document optional dependencies
-- deferred loading mention.
-- addCommandPath()
-- API thread safety
-- add note to documentation about exponential-time regexps
-- document deep indent
-- note about dependencies
-- plugin tutorial:
-  - plugin build environment docs
-  - auto-created actions
-  - link to jEdit devel page
-  - quicknotepad class -- links to API docs
-  - functions - links to API docs
-  - quicknotepad docs
-- plugin tips and techniques:
-  - common. properties, using properties for UI strings
-  - cutting down on startup time
-  - canned dialog boxes in GUIUtilities
-  - tools.jar
-  - string comparison in MiscUtilities
-  - writing a macro handler
-  - writing a fold handler
-  - OperatingSystem class
-  - option groups
-  - listening for buffer changes
-  - canned controls:
-    animated icon, color well button, enhanced dialog,
-    font selector, history text field, 
-    jcheckboxlist, rolloverbutton,
-    variablegridlayout
-  - displaying a help viewer
-  - canned icons
-  - vfs implementation
-  - running stuff in i/o threads
-  - multi-threaded i/o
-  - jeditresource: protocol
-  - getting line syntax info, textutilities.getTokenAtOffset()
-  - text area extensions
-  - text area caret & scroll listeners
-  - status bar messages & readNextChar()
-- vfs javadoc: invokeAndWait() example for createVFSSession()
-
-check tips of the day
-- help:
-  - titles in search are fucked
-- sidebars: need a border or some sort
-
-[error] WorkThread: java.lang.ClassCastException
-[error] WorkThread:  at archive.ArchiveVFS.getDirectories(Unknown Source)
-[error] WorkThread:  at archive.ArchiveVFS.cacheDirectories(Unknown Source)
-[error] WorkThread:  at archive.ArchiveVFS._listDirectory(Unknown Source)
-[error] WorkThread:  at org.gjt.sp.jedit.browser.BrowserIORequest.listDirectory(BrowserIORequest.java:159)
-[error] WorkThread:  at org.gjt.sp.jedit.browser.BrowserIORequest.run(BrowserIORequest.java:90)
-[error] WorkThread:  at org.gjt.sp.util.WorkThread.doRequest(WorkThread.java:194)
-[error] WorkThread:  at org.gjt.sp.util.WorkThread.doRequests(WorkThread.java:161)
-[error] WorkThread:  at org.gjt.sp.util.WorkThread.run(WorkThread.java:135)
-
-[error] ChunkCache: BUG: skew=1,out.size()=0
-[error] ChunkCache: BUG: skew=1,out.size()=1
-
-- C+d & killring
-- plugin mgr inspection of not-loaded plugins
-- history text field tweak
-
-+ obscure:
-
-- no need to wait for requests after newFile()
-- class loading problems
-- motif l&f: shortcuts in menu items
-- some JLists do not auto-scroll on keystroke
-- how to handle S+0-9?
-- invoking action bar command twice
-- backup time distance setting
-- if A depends on B but A is loaded before B and B breaks, A ends up
-  being loaded. Solution: load plugins in order of dependencies?
-
-+ performance:
-
-- 7000 line lisp file: window resize is slow
-- closing lots of files is slow -- esp. with close all dialog box!
-- menu drag: slow
-- bracket matching: no delay for current line match??
-- final optimization for OffsetManager: scan to zero or scan to end
-- do buffer load AWT half immediately after work thread half
-- replace all in a directory could be faster
-- buffer.setMode() slow
-- eliminate redundant scans and events when loading buffer
-- don't repaint whole selection when resizing
-- could make non-soft wrap chunk merge even faster!
-- syntax SPAN::END substitution: String --> char[] --> String
-- is getScreenLineOfOffset() called often?
-- if caret is at the end of a buffer when doing a replace all, a lot of
-  repaint() and getLineOfOffset() calls are made
-- optimize for no folding & no soft wrap case:
-  - reset() and changed() don't need to scan
-  - scroll/physUp/Down() simpler
-- inserting lines repaints whole text area
-- see if getLineOfOffset() can be optimized
-- optimize 1 long line case
-- two repaints in line insert
-- redundant calls to recalculateLastPhysicalLines()/updateScrollBars()
-- redundant updateChunksUpTo() calls
-
-jEdit buffer local properties:
-:wrap=hard:maxLineLen=72:indentSize=2:
+- if start is at the end of a line, .* always matches an empty string
+- formatting problems in user's guide in table cells
+- finish persistent splits code
+- complete word: keys to navigate don't work with some Java versions
+- don't do #save# stuff if destination directory is not writeable
+- installing source for already installed plugins is not possible
+- directory search: continue even if a file can't be loaded
+- a line consisting entirely of spaces & word wrap
+- switching option panes real fast
+- fix '... is not a function name' when running openjade
+- GUIUtilities method that makes sure popups appear within the screen
+  bounds
+- vfs browser: >1 request error when clicking 'up'?
+- prev line fold gutter bug
+- tabbing to text area fails
+- zlib decompression errors in plugin manager
+- failed saves should not clear the dirty flag
+- see if new beanshell fixes trailing \n bug
+- get rid of final blank page of user's guide
+- aborts not always fired
+- fix dragStart handling in DockableWindowContainer.TabbedPane
+- folding paint up bug
+- expand-fold too aggressive
+- replace in sel doesn't work if rect
+- macro guide: JOptionPane not a good idea for getting user input?
+- globalColors setting:
+  - tree controls, file system browser icons, tool bar icons look a bit
+    ugly with different backgrounds
+  - help viewer looks ugly
+  - selected borders in list, tree, table wrong colors
+  - updateUI doesn't update tree colors
+  - restart should not be necessary for 'globalColors' to take effect

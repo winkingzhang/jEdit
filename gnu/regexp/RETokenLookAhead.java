@@ -18,20 +18,18 @@
  */
 package gnu.regexp;
 
-/**
- * @since gnu.regexp 1.1.3
- * @author Shashank Bapat
- */
 final class RETokenLookAhead extends REToken
 {
-  REToken re;
+  RE re;
   boolean negative;
 
-  RETokenLookAhead(REToken re, boolean negative) throws REException {
+
+  RETokenLookAhead(Object pattern, int cflags, RESyntax syntax, boolean negative) throws REException {
     super(0);
-    this.re = re;
+    re = new RE(pattern, cflags, syntax);
     this.negative = negative;
   }
+
 
   boolean match(CharIndexed input, REMatch mymatch)
   {
@@ -57,12 +55,5 @@ final class RETokenLookAhead extends REToken
       return false;
     }
   }
-
-    void dump(StringBuffer os) {
-	os.append("(?");
-	os.append(negative ? '!' : '=');
-	re.dumpAll(os);
-	os.append(')');
-    }
 }
 

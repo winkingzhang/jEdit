@@ -1,8 +1,5 @@
 /*
  * Marker.java - Named location in a buffer
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 1998, 1999, 2000, 2001 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
@@ -22,35 +19,37 @@
 
 package org.gjt.sp.jedit;
 
+import javax.swing.text.BadLocationException;
 import javax.swing.text.Position;
+import org.gjt.sp.util.Log;
 
 /**
- * Buffers may contain one or more <i>markers</i> which serve
- * as textual bookmarks.<p>
- *
- * A <code>Marker</code> has three key attributes: the
- * <code>Buffer</code> to which it relates, the line number to which
- * the marker refers, and an optional shortcut character. The shortcut
- * identifies the the key that can be pressed with the
- * <b>Markers</b>&gt;<b>Go To Marker</b> command.
+ * A named location in a buffer.
  *
  * @author Slava Pestov
- * @author John Gellene (API documentation)
  * @version $Id$
  */
 public class Marker
 {
-	//{{{ getShortcut() method
 	/**
-	 * Returns the marker's shortcut character.
+	 * Returns the marker's shortcut.
 	 * @since jEdit 3.2pre1
 	 */
 	public char getShortcut()
 	{
 		return shortcut;
-	} //}}}
+	}
 
-	//{{{ getPosition() method
+	/**
+	 * Sets the marker's shortcut.
+	 * @param shortcut The new shortcut
+	 * @since jEdit 3.2pre1
+	 */
+	public void setShortcut(char shortcut)
+	{
+		this.shortcut = shortcut;
+	}
+
 	/**
 	 * Returns the position of this marker.
 	 * @since jEdit 3.2pre1
@@ -58,62 +57,37 @@ public class Marker
 	public int getPosition()
 	{
 		return (position == null ? pos : position.getOffset());
-	} //}}}
+	}
 
-	//{{{ Package-private members
-
-	//{{{ Marker constructor
+	// package-private members
 	Marker(Buffer buffer, char shortcut, int position)
 	{
 		this.buffer = buffer;
 		this.shortcut = shortcut;
 		this.pos = position;
-	} //}}}
+	}
 
-	//{{{ setShortcut() method
-	/**
-	 * Sets the marker's shortcut.
-	 * @param shortcut The new shortcut
-	 * @since jEdit 3.2pre1
-	 */
-	void setShortcut(char shortcut)
-	{
-		this.shortcut = shortcut;
-	} //}}}
-
-	//{{{ createPosition() method
 	void createPosition()
 	{
-		position = buffer.createPosition(pos);
-	} //}}}
+		try
+		{
+			position = buffer.createPosition(pos);
+		}
+		catch(BadLocationException bl)
+		{
+			Log.log(Log.ERROR,this,bl);
+		}
+	}
 
-	//{{{ removePosition() method
 	void removePosition()
 	{
 		// forget the cached Position instance
-		if(position != null)
-		{
-			pos = position.getOffset();
-			position = null;
-		}
-	} //}}}
+		position = null;
+	}
 
-	//{{{ setPosition() method
-	/**
-	 * Sets the position of this marker.
-	 * @since jEdit 4.0pre5
-	 */
-	void setPosition(int pos)
-	{
-		this.pos = pos;
-	} //}}}
-
-	//}}}
-
-	//{{{ Private members
+	// private members
 	private Buffer buffer;
 	private char shortcut;
 	private int pos;
 	private Position position;
-	//}}}
 }

@@ -1,9 +1,6 @@
 /*
  * SyntaxStyle.java - A simple text style class
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1999, 2003 Slava Pestov
+ * Copyright (C) 1999, 2001 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -32,7 +29,6 @@ import java.awt.Color;
  */
 public class SyntaxStyle
 {
-	//{{{ SyntaxStyle constructor
 	/**
 	 * Creates a new SyntaxStyle.
 	 * @param fgColor The text color
@@ -44,38 +40,34 @@ public class SyntaxStyle
 		this.fgColor = fgColor;
 		this.bgColor = bgColor;
 		this.font = font;
-	} //}}}
+	}
 
-	//{{{ getForegroundColor() method
 	/**
 	 * Returns the text color.
 	 */
 	public Color getForegroundColor()
 	{
 		return fgColor;
-	} //}}}
+	}
 
-	//{{{ getBackgroundColor() method
 	/**
 	 * Returns the background color.
 	 */
 	public Color getBackgroundColor()
 	{
 		return bgColor;
-	} //}}}
+	}
 
-	//{{{ getFont() method
 	/**
 	 * Returns the style font.
 	 */
 	public Font getFont()
 	{
 		return font;
-	} //}}}
+	}
 
-	//{{{ Private members
+	// private members
 	private Color fgColor;
 	private Color bgColor;
 	private Font font;
-	//}}}
 }

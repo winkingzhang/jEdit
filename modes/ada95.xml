@@ -5,9 +5,13 @@
 <MODE>
 	<PROPS>
 		<PROPERTY NAME="lineComment" VALUE="--" />
+		<PROPERTY NAME="noWordSep" VALUE="_" />
 	</PROPS>
 
 	<RULES IGNORE_CASE="TRUE" HIGHLIGHT_DIGITS="TRUE">
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<!-- Normal comments. -->
 		<EOL_SPAN TYPE="COMMENT1">--</EOL_SPAN>
 
@@ -20,7 +24,12 @@
 		<SEQ TYPE="OPERATOR">(</SEQ>
 		<SEQ TYPE="OPERATOR">..</SEQ>
 		<SEQ TYPE="OPERATOR">.all</SEQ>
+		<SEQ TYPE="NULL">.</SEQ>
+		<SEQ TYPE="NULL">,</SEQ>
+		<SEQ TYPE="NULL">;</SEQ>
+		<SEQ TYPE="NULL">#</SEQ>
 		<SEQ TYPE="OPERATOR">:=</SEQ>
+		<SEQ TYPE="NULL">:</SEQ>
 		<SEQ TYPE="OPERATOR">/=</SEQ>
 		<SEQ TYPE="OPERATOR">=&gt;</SEQ>
 		<SEQ TYPE="OPERATOR">=</SEQ>
@@ -130,7 +139,7 @@
 			<END>'</END>
 		</SPAN>
 
-		<KEYWORDS>
+		<KEYWORDS IGNORE_CASE="TRUE">
 			<!-- Reserved words -->
 			<KEYWORD1>entry</KEYWORD1>
 			<KEYWORD1>function</KEYWORD1>

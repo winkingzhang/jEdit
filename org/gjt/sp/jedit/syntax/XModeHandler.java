@@ -1,8 +1,5 @@
 /*
  * XModeHandler.java - XML handler for mode files
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 1999 mike dillon
  * Portions copyright (C) 2000, 2001 Slava Pestov
  *
@@ -23,645 +20,581 @@
 
 package org.gjt.sp.jedit.syntax;
 
-//{{{ Imports
-import java.util.*;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
-
-import org.xml.sax.Attributes;
-import org.xml.sax.InputSource;
-import org.xml.sax.helpers.DefaultHandler;
-
+import com.microstar.xml.*;
+import java.io.*;
+import java.net.URL;
+import java.util.Enumeration;
+import java.util.Stack;
+import org.gjt.sp.jedit.*;
 import org.gjt.sp.util.Log;
-import org.gjt.sp.util.XMLUtilities;
-//}}}
 
-/**
- * XML handler for mode definition files.
- */
-public abstract class XModeHandler extends DefaultHandler
+public class XModeHandler extends HandlerBase
 {
-	//{{{ XModeHandler constructor
-	public XModeHandler (String modeName)
+	// public members
+	public XModeHandler (XmlParser parser, String modeName, String path)
 	{
 		this.modeName = modeName;
-		marker = new TokenMarker();
-		marker.addRuleSet(new ParserRuleSet(modeName,"MAIN"));
+		this.parser = parser;
+		this.path = path;
 		stateStack = new Stack();
-	} //}}}
+	}
 
-	//{{{ resolveEntity() method
-	public InputSource resolveEntity(String publicId, String systemId)
+	// begin HandlerBase implementation
+	public Object resolveEntity(String publicId, String systemId)
 	{
-		return XMLUtilities.findEntity(systemId, "xmode.dtd", XModeHandler.class);
-	} //}}}
-
-	//{{{ characters() method
-	public void characters(char[] c, int off, int len)
-	{
-		peekElement().setText(c, off, len);
-	} //}}}
-
-	//{{{ startElement() method
-	public void startElement(String uri, String localName,
-				 String qName, Attributes attrs)
-	{
-		TagDecl tag = pushElement(qName, attrs);
-
-		if (qName.equals("WHITESPACE"))
+		if("xmode.dtd".equals(systemId))
 		{
-			Log.log(Log.WARNING,this,modeName + ": WHITESPACE rule "
-				+ "no longer needed");
-		}
-		else if (qName.equals("KEYWORDS"))
-		{
-			keywords = new KeywordMap(rules.getIgnoreCase());
-		}
-		else if (qName.equals("RULES"))
-		{
-			if(tag.lastSetName == null)
-				tag.lastSetName = "MAIN";
-			rules = marker.getRuleSet(tag.lastSetName);
-			if(rules == null)
+			try
 			{
-				rules = new ParserRuleSet(modeName,tag.lastSetName);
-				marker.addRuleSet(rules);
+				return new BufferedReader(new InputStreamReader(
+					getClass().getResourceAsStream(
+					"/org/gjt/sp/jedit/xmode.dtd")));
 			}
-			rules.setIgnoreCase(tag.lastIgnoreCase);
-			rules.setHighlightDigits(tag.lastHighlightDigits);
-			if(tag.lastDigitRE != null)
+			catch(Exception e)
+			{
+				error("dtd",e);
+			}
+		}
+
+		return null;
+	}
+
+	public void attribute(String aname, String value, boolean isSpecified)
+	{
+		String tag = peekElement();
+		aname = (aname == null) ? null : aname.intern();
+		value = (value == null) ? null : value.intern();
+
+		if (aname == "NAME")
+		{
+			propName = value;
+		}
+		else if (aname == "VALUE")
+		{
+			propValue = value;
+		}
+		else if (aname == "TYPE")
+		{
+			lastTokenID = stringToToken(value);
+		}
+		else if (aname == "AT_LINE_START")
+		{
+			lastAtLineStart = (isSpecified) ? (value == "TRUE") :
+				false;
+		}
+		else if (aname == "NO_LINE_BREAK")
+		{
+			lastNoLineBreak = (isSpecified) ? (value == "TRUE") :
+				false;
+		}
+		else if (aname == "NO_WORD_BREAK")
+		{
+			lastNoWordBreak = (isSpecified) ? (value == "TRUE") :
+				false;
+		}
+		else if (aname == "EXCLUDE_MATCH")
+		{
+			lastExcludeMatch = (isSpecified) ? (value == "TRUE") :
+				false;
+		}
+		else if (aname == "IGNORE_CASE")
+		{
+			lastIgnoreCase = (isSpecified) ? (value != "FALSE") :
+				true;
+		}
+		else if (aname == "HIGHLIGHT_DIGITS")
+		{
+			lastHighlightDigits = (isSpecified) ? (value != "FALSE") :
+				false;
+		}
+		else if (aname == "AT_CHAR")
+		{
+			try
+			{
+				if (isSpecified) termChar =
+					Integer.parseInt(value);
+			}
+			catch (NumberFormatException e)
+			{
+				error("termchar-invalid",value);
+				termChar = -1;
+			}
+		}
+		else if (aname == "ESCAPE")
+		{
+			lastEscape = value;
+		}
+		else if (aname == "SET")
+		{
+			lastSetName = value;
+		}
+		else if (aname == "DELEGATE")
+		{
+			lastDelegateSet = value;
+		}
+		else if (aname == "DEFAULT")
+		{
+			lastDefaultID = stringToToken(value);
+		}
+	}
+
+	public void doctypeDecl(String name, String publicId,
+		String systemId) throws Exception
+	{
+		if ("MODE".equalsIgnoreCase(name)) return;
+
+		error("doctype-invalid",name);
+	}
+
+	public void charData(char[] c, int off, int len)
+	{
+		String tag = peekElement();
+		String text = new String(c, off, len);
+
+		if (tag == "WHITESPACE" ||
+			tag == "EOL_SPAN" ||
+			tag == "MARK_PREVIOUS" ||
+			tag == "MARK_FOLLOWING" ||
+			tag == "SEQ" ||
+			tag == "BEGIN"
+		)
+		{
+			lastStart = text;
+		}
+		else if (tag == "END")
+		{
+			lastEnd = text;
+		}
+		else
+		{
+			lastKeyword = text;
+		}
+	}
+
+	public void startElement (String tag)
+	{
+		tag = pushElement(tag);
+
+		if (tag == "MODE")
+		{
+			mode = jEdit.getMode(modeName);
+			if (mode == null)
+			{
+				mode = new Mode(modeName);
+				jEdit.addMode(mode);
+			}
+		}
+		else if (tag == "KEYWORDS")
+		{
+			keywords = new KeywordMap(true);
+		}
+		else if (tag == "RULES")
+		{
+			rules = new ParserRuleSet();
+			rules.setIgnoreCase(lastIgnoreCase);
+			rules.setHighlightDigits(lastHighlightDigits);
+			rules.setEscape(lastEscape);
+			rules.setDefault(lastDefaultID);
+		}
+	}
+
+	public void endElement (String name)
+	{
+		if (name == null) return;
+
+		String tag = popElement();
+
+		if (name.equalsIgnoreCase(tag))
+		{
+			if (tag == "MODE")
+			{
+				mode.init();
+				mode.setTokenMarker(marker);
+			}
+			else if (tag == "PROPERTY")
 			{
 				try
 				{
-					rules.setDigitRegexp(Pattern.compile(tag.lastDigitRE,
-						tag.lastIgnoreCase
-						? Pattern.CASE_INSENSITIVE : 0));
+					mode.setProperty(propName,
+						new Integer(propValue));
 				}
-				catch(PatternSyntaxException e)
+				catch(NumberFormatException nf)
 				{
-					error("regexp",e);
+					mode.setProperty(propName,propValue);
 				}
 			}
-
-			if(tag.lastEscape != null)
-				rules.setEscapeRule(ParserRule.createEscapeRule(tag.lastEscape));
-			rules.setDefault(tag.lastDefaultID);
-			rules.setNoWordSep(tag.lastNoWordSep);
-		}
-	} //}}}
-
-	//{{{ endElement() method
-	public void endElement(String uri, String localName, String name)
-	{
-		TagDecl tag = popElement();
-		if (name.equals(tag.tagName))
-		{
-			//{{{ PROPERTY
-			if (tag.tagName.equals("PROPERTY"))
+			else if (tag == "KEYWORDS")
 			{
-				props.put(propName,propValue);
-			} //}}}
-			//{{{ PROPS
-			else if (tag.tagName.equals("PROPS"))
-			{
-				if(peekElement().tagName.equals("RULES"))
-					rules.setProperties(props);
-				else
-					modeProps = props;
-
-				props = new Hashtable();
-			} //}}}
-			//{{{ RULES
-			else if (tag.tagName.equals("RULES"))
+				keywords.setIgnoreCase(lastIgnoreCase);
+				lastIgnoreCase = true;
+			}
+			else if (tag == "RULES")
 			{
 				rules.setKeywords(keywords);
+				marker.addRuleSet(lastSetName, rules);
 				keywords = null;
+				lastSetName = null;
+				lastEscape = null;
+				lastIgnoreCase = true;
+				lastHighlightDigits = false;
+				lastDefaultID = Token.NULL;
 				rules = null;
-			} //}}}
-			//{{{ IMPORT
-			else if (tag.tagName.equals("IMPORT"))
+			}
+			else if (tag == "TERMINATE")
 			{
-				rules.addRuleSet(tag.lastDelegateSet);
-			} //}}}
-			//{{{ TERMINATE
-			else if (tag.tagName.equals("TERMINATE"))
+				setTerminateChar(termChar);
+				termChar = -1;
+			}
+			else if (tag == "WHITESPACE")
 			{
-				rules.setTerminateChar(tag.termChar);
-			} //}}}
-			//{{{ SEQ
-			else if (tag.tagName.equals("SEQ"))
-			{
-				if(tag.lastStart == null)
+				if(lastStart == null)
 				{
-					error("empty-tag","SEQ");
+					error("empty-tag","WHITESPACE");
 					return;
 				}
 
-				rules.addRule(ParserRule.createSequenceRule(
-					tag.lastStartPosMatch,tag.lastStart.toString(),
-					tag.lastDelegateSet,tag.lastTokenID));
-			} //}}}
-			//{{{ SEQ_REGEXP
-			else if (tag.tagName.equals("SEQ_REGEXP"))
+				addRule(ParserRuleFactory.createWhitespaceRule(
+					lastStart));
+				lastStart = null;
+				lastEnd = null;
+			}
+			else if (tag == "EOL_SPAN")
 			{
-				if(tag.lastStart == null)
-				{
-					error("empty-tag","SEQ_REGEXP");
-					return;
-				}
-
-				try
-				{
-					rules.addRule(ParserRule.createRegexpSequenceRule(
-						tag.lastHashChar,tag.lastStartPosMatch,
-						tag.lastStart.toString(),tag.lastDelegateSet,
-						tag.lastTokenID,findParent("RULES").lastIgnoreCase));
-				}
-				catch(PatternSyntaxException re)
-				{
-					error("regexp",re);
-				}
-			} //}}}
-			//{{{ SPAN
-			else if (tag.tagName.equals("SPAN"))
-			{
-				if(tag.lastStart == null)
-				{
-					error("empty-tag","BEGIN");
-					return;
-				}
-
-				if(tag.lastEnd == null)
-				{
-					error("empty-tag","END");
-					return;
-				}
-
-				rules.addRule(ParserRule
-					.createSpanRule(
-					tag.lastStartPosMatch,tag.lastStart.toString(),
-					tag.lastEndPosMatch,tag.lastEnd.toString(),
-					tag.lastDelegateSet,
-					tag.lastTokenID,tag.lastExcludeMatch,
-					tag.lastNoLineBreak,
-					tag.lastNoWordBreak,
-					tag.lastNoEscape));
-			} //}}}
-			//{{{ SPAN_REGEXP
-			else if (tag.tagName.equals("SPAN_REGEXP"))
-			{
-				if(tag.lastStart == null)
-				{
-					error("empty-tag","BEGIN");
-					return;
-				}
-
-				if(tag.lastEnd == null)
-				{
-					error("empty-tag","END");
-					return;
-				}
-
-				try
-				{
-					rules.addRule(ParserRule
-						.createRegexpSpanRule(
-						tag.lastHashChar,
-						tag.lastStartPosMatch,tag.lastStart.toString(),
-						tag.lastEndPosMatch,tag.lastEnd.toString(),
-						tag.lastDelegateSet,
-						tag.lastTokenID,
-						tag.lastExcludeMatch,
-						tag.lastNoLineBreak,
-						tag.lastNoWordBreak,
-						findParent("RULES").lastIgnoreCase,
-						tag.lastNoEscape));
-				}
-				catch(PatternSyntaxException re)
-				{
-					error("regexp",re);
-				}
-			} //}}}
-			//{{{ EOL_SPAN
-			else if (tag.tagName.equals("EOL_SPAN"))
-			{
-				if(tag.lastStart == null)
+				if(lastStart == null)
 				{
 					error("empty-tag","EOL_SPAN");
 					return;
 				}
 
-				rules.addRule(ParserRule.createEOLSpanRule(
-					tag.lastStartPosMatch,tag.lastStart.toString(),
-					tag.lastDelegateSet,tag.lastTokenID,
-					tag.lastExcludeMatch));
-			} //}}}
-			//{{{ EOL_SPAN_REGEXP
-			else if (tag.tagName.equals("EOL_SPAN_REGEXP"))
+				addRule(ParserRuleFactory.createEOLSpanRule(
+					lastStart,lastTokenID,lastAtLineStart,
+					lastExcludeMatch));
+				lastStart = null;
+				lastEnd = null;
+				lastTokenID = Token.NULL;
+				lastAtLineStart = false;
+				lastExcludeMatch = false;
+			}
+			else if (tag == "MARK_PREVIOUS")
 			{
-				if(tag.lastStart == null)
-				{
-					error("empty-tag","EOL_SPAN_REGEXP");
-					return;
-				}
-
-				try
-				{
-					rules.addRule(ParserRule.createRegexpEOLSpanRule(
-						tag.lastHashChar,tag.lastStartPosMatch,
-						tag.lastStart.toString(),tag.lastDelegateSet,
-						tag.lastTokenID,tag.lastExcludeMatch,
-						findParent("RULES").lastIgnoreCase));
-				}
-				catch(PatternSyntaxException re)
-				{
-					error("regexp",re);
-				}
-			} //}}}
-			//{{{ MARK_FOLLOWING
-			else if (tag.tagName.equals("MARK_FOLLOWING"))
-			{
-				if(tag.lastStart == null)
-				{
-					error("empty-tag","MARK_FOLLOWING");
-					return;
-				}
-
-				rules.addRule(ParserRule
-					.createMarkFollowingRule(
-					tag.lastStartPosMatch,tag.lastStart.toString(),
-					tag.lastTokenID,tag.lastExcludeMatch));
-			} //}}}
-			//{{{ MARK_PREVIOUS
-			else if (tag.tagName.equals("MARK_PREVIOUS"))
-			{
-				if(tag.lastStart == null)
+				if(lastStart == null)
 				{
 					error("empty-tag","MARK_PREVIOUS");
 					return;
 				}
 
-				rules.addRule(ParserRule
-					.createMarkPreviousRule(
-					tag.lastStartPosMatch,tag.lastStart.toString(),
-					tag.lastTokenID,tag.lastExcludeMatch));
-			} //}}}
-			//{{{ Keywords
-			else if (
-				!tag.tagName.equals("END")
-				&& !tag.tagName.equals("BEGIN")
-				&& !tag.tagName.equals("KEYWORDS")
-				&& !tag.tagName.equals("MODE")
-			) {
-				byte token = Token.stringToToken(tag.tagName);
-				if(token != -1)
-					addKeyword(tag.lastKeyword.toString(),token);
-			} //}}}
+				addRule(ParserRuleFactory
+					.createMarkPreviousRule(lastStart,
+					lastTokenID,lastAtLineStart,
+					lastExcludeMatch));
+				lastStart = null;
+				lastEnd = null;
+				lastTokenID = Token.NULL;
+				lastAtLineStart = false;
+				lastExcludeMatch = false;
+			}
+			else if (tag == "MARK_FOLLOWING")
+			{
+				if(lastStart == null)
+				{
+					error("empty-tag","MARK_FOLLOWING");
+					return;
+				}
+
+				addRule(ParserRuleFactory
+					.createMarkFollowingRule(lastStart,
+					lastTokenID,lastAtLineStart,
+					lastExcludeMatch));
+				lastStart = null;
+				lastEnd = null;
+				lastTokenID = Token.NULL;
+				lastAtLineStart = false;
+				lastExcludeMatch = false;
+			}
+			else if (tag == "SEQ")
+			{
+				if(lastStart == null)
+				{
+					error("empty-tag","SEQ");
+					return;
+				}
+
+				addRule(ParserRuleFactory.createSequenceRule(
+					lastStart,lastTokenID,lastAtLineStart));
+				lastStart = null;
+				lastEnd = null;
+				lastTokenID = Token.NULL;
+				lastAtLineStart = false;
+			}
+			else if (tag == "END")
+			{
+				// empty END tags should be supported; see
+				// asp.xml, for example
+				/* if(lastEnd == null)
+				{
+					error("empty-tag","END");
+					return;
+				} */
+
+				if (lastDelegateSet == null)
+				{
+					addRule(ParserRuleFactory
+						.createSpanRule(lastStart,
+						lastEnd,lastTokenID,
+						lastNoLineBreak,
+						lastAtLineStart,
+						lastExcludeMatch,
+						lastNoWordBreak));
+				}
+				else
+				{
+					if (lastDelegateSet.indexOf("::") == -1)
+					{
+						lastDelegateSet = modeName + "::" + lastDelegateSet;
+					}
+
+					addRule(ParserRuleFactory
+						.createDelegateSpanRule(
+						lastStart,lastEnd,
+						lastDelegateSet,
+						lastTokenID,lastNoLineBreak,
+						lastAtLineStart,
+						lastExcludeMatch,
+						lastNoWordBreak));
+				}
+				lastStart = null;
+				lastEnd = null;
+				lastTokenID = Token.NULL;
+				lastAtLineStart = false;
+				lastNoLineBreak = false;
+				lastExcludeMatch = false;
+				lastNoWordBreak = false;
+				lastDelegateSet = null;
+			}
+			else if (tag == "NULL")
+			{
+				addKeyword(lastKeyword,Token.NULL);
+			}
+			else if (tag == "COMMENT1")
+			{
+				addKeyword(lastKeyword,Token.COMMENT1);
+			}
+			else if (tag == "COMMENT2")
+			{
+				addKeyword(lastKeyword,Token.COMMENT2);
+			}
+			else if (tag == "LITERAL1")
+			{
+				addKeyword(lastKeyword,Token.LITERAL1);
+			}
+			else if (tag == "LITERAL2")
+			{
+				addKeyword(lastKeyword,Token.LITERAL2);
+			}
+			else if (tag == "LABEL")
+			{
+				addKeyword(lastKeyword,Token.LABEL);
+			}
+			else if (tag == "KEYWORD1")
+			{
+				addKeyword(lastKeyword,Token.KEYWORD1);
+			}
+			else if (tag == "KEYWORD2")
+			{
+				addKeyword(lastKeyword,Token.KEYWORD2);
+			}
+			else if (tag == "KEYWORD3")
+			{
+				addKeyword(lastKeyword,Token.KEYWORD3);
+			}
+			else if (tag == "FUNCTION")
+			{
+				addKeyword(lastKeyword,Token.FUNCTION);
+			}
+			else if (tag == "MARKUP")
+			{
+				addKeyword(lastKeyword,Token.MARKUP);
+			}
+			else if (tag == "OPERATOR")
+			{
+				addKeyword(lastKeyword,Token.OPERATOR);
+			}
+			else if (tag == "DIGIT")
+			{
+				addKeyword(lastKeyword,Token.DIGIT);
+			}
 		}
 		else
 		{
 			// can't happen
 			throw new InternalError();
 		}
-	} //}}}
+	}
 
-	//{{{ startDocument() method
 	public void startDocument()
 	{
-		props = new Hashtable();
-		pushElement(null, null);
-	} //}}}
+		marker = new TokenMarker();
+		marker.setName(modeName);
 
-	//{{{ endDocument() method
-	public void endDocument()
-	{
-		ParserRuleSet[] rulesets = marker.getRuleSets();
-		for(int i = 0; i < rulesets.length; i++)
-		{
-			rulesets[i].resolveImports();
-		}
-	} //}}}
+		pushElement(null);
+	}
+	// end HandlerBase implementation
 
-	//{{{ getTokenMarker() method
-	public TokenMarker getTokenMarker()
-	{
-		return marker;
-	} //}}}
-
-	//{{{ getModeProperties() method
-	public Hashtable getModeProperties()
-	{
-		return modeProps;
-	} //}}}
-
-	//{{{ Protected members
-
-	//{{{ error() method
-	/**
-	 * Reports an error.
-	 * You must override this method so that the mode loader can do error
-	 * reporting.
-	 * @param msg The error type
-	 * @param subst A <code>String</code> or a <code>Throwable</code>
-	 * containing specific information
-	 * @since jEdit 4.2pre1
-	 */
-	protected abstract void error(String msg, Object subst);
-	//}}}
-
-	//{{{ getTokenMarker() method
-	/**
-	 * Returns the token marker for the given mode.
-	 * You must override this method so that the mode loader can resolve
-	 * delegate targets.
-	 * @param mode The mode name
-	 * @since jEdit 4.2pre1
-	 */
-	protected abstract TokenMarker getTokenMarker(String mode);
-	//}}}
-
-	//}}}
-
-	//{{{ Private members
-
-	//{{{ Instance variables
+	// private members
+	private XmlParser parser;
 	private String modeName;
+	private String path;
+
 	private TokenMarker marker;
 	private KeywordMap keywords;
+	private Mode mode;
 	private Stack stateStack;
 	private String propName;
 	private String propValue;
-	private Hashtable props;
-	private Hashtable modeProps;
+	private String lastStart;
+	private String lastEnd;
+	private String lastKeyword;
+	private String lastSetName;
+	private String lastEscape;
+	private String lastDelegateSet;
 	private ParserRuleSet rules;
-	//}}}
+	private byte lastDefaultID = Token.NULL;
+	private byte lastTokenID;
+	private int termChar = -1;
+	private boolean lastNoLineBreak;
+	private boolean lastNoWordBreak;
+	private boolean lastAtLineStart;
+	private boolean lastExcludeMatch;
+	private boolean lastIgnoreCase = true;
+	private boolean lastHighlightDigits;
 
-	//{{{ addKeyword() method
+	private byte stringToToken(String value)
+	{
+		if (value == "NULL")
+		{
+			return Token.NULL;
+		}
+		else if (value == "COMMENT1")
+		{
+			return Token.COMMENT1;
+		}
+		else if (value == "COMMENT2")
+		{
+			return Token.COMMENT2;
+		}
+		else if (value == "LITERAL1")
+		{
+			return Token.LITERAL1;
+		}
+		else if (value == "LITERAL2")
+		{
+			return Token.LITERAL2;
+		}
+		else if (value == "LABEL")
+		{
+			return Token.LABEL;
+		}
+		else if (value == "KEYWORD1")
+		{
+			return Token.KEYWORD1;
+		}
+		else if (value == "KEYWORD2")
+		{
+			return Token.KEYWORD2;
+		}
+		else if (value == "KEYWORD3")
+		{
+			return Token.KEYWORD3;
+		}
+		else if (value == "FUNCTION")
+		{
+			return Token.FUNCTION;
+		}
+		else if (value == "MARKUP")
+		{
+			return Token.MARKUP;
+		}
+		else if (value == "OPERATOR")
+		{
+			return Token.OPERATOR;
+		}
+		else if (value == "DIGIT")
+		{
+			return Token.DIGIT;
+		}
+		else if (value == "INVALID")
+		{
+			return Token.INVALID;
+		}
+		else
+		{
+			error("token-invalid",value);
+			return Token.NULL;
+		}
+	}
+
 	private void addKeyword(String k, byte id)
 	{
 		if(k == null)
 		{
-			error("empty-keyword",null);
+			error("empty-keyword");
 			return;
 		}
 
 		if (keywords == null) return;
 		keywords.add(k,id);
-	} //}}}
-
-	//{{{ pushElement() method
-	private TagDecl pushElement(String name, Attributes attrs)
-	{
-		if (name != null)
-		{
-			TagDecl tag = new TagDecl(name, attrs);
-			stateStack.push(tag);
-			return tag;
-		}
-		else
-		{
-			stateStack.push(null);
-			return null;
-		}
-	} //}}}
-
-	//{{{ peekElement() method
-	private TagDecl peekElement()
-	{
-		return (TagDecl) stateStack.peek();
-	} //}}}
-
-	//{{{ popElement() method
-	private TagDecl popElement()
-	{
-		return (TagDecl) stateStack.pop();
-	} //}}}
-
-	//{{{ findElement() method
-	/**
-	 * Finds the first element whose tag matches 'tagName',
-	 * searching backwards in the stack.
-	 */
-	private TagDecl findParent(String tagName)
-	{
-		for (int idx = stateStack.size() - 1; idx >= 0; idx--)
-		{
-			TagDecl tag = (TagDecl) stateStack.get(idx);
-			if (tag.tagName.equals(tagName))
-				return tag;
-		}
-		return null;
-	} //}}}
-
-	//}}}
-
-	/**
-	 * Hold info about what tag was read and what attributes were
-	 * set in the XML file, to be kept by the handler in a stack
-	 * (similar to the way tag names were kept in a stack before).
-	 */
-	private class TagDecl
-	{
-
-		public TagDecl(String tagName, Attributes attrs)
-		{
-			this.tagName = tagName;
-
-			String tmp;
-
-			propName = attrs.getValue("NAME");
-			propValue = attrs.getValue("VALUE");
-
-			tmp = attrs.getValue("TYPE");
-			if (tmp != null)
-			{
-				lastTokenID = Token.stringToToken(tmp);
-				if(lastTokenID == -1)
-					error("token-invalid",tmp);
-			}
-
-			lastAtLineStart = "TRUE".equals(attrs.getValue("AT_LINE_START"));
-			lastAtWhitespaceEnd = "TRUE".equals(attrs.getValue("AT_WHITESPACE_END"));
-			lastAtWordStart = "TRUE".equals(attrs.getValue("AT_WORD_START"));
-			lastNoLineBreak = "TRUE".equals(attrs.getValue("NO_LINE_BREAK"));
-			lastNoWordBreak = "TRUE".equals(attrs.getValue("NO_WORD_BREAK"));
-			lastNoEscape = "TRUE".equals(attrs.getValue("NO_ESCAPE"));
-			lastExcludeMatch = "TRUE".equals(attrs.getValue("EXCLUDE_MATCH"));
-			lastIgnoreCase = (attrs.getValue("IGNORE_CASE") == null ||
-					"TRUE".equals(attrs.getValue("IGNORE_CASE")));
-			lastHighlightDigits = "TRUE".equals(attrs.getValue("HIGHLIGHT_DIGITS"));;
-			lastDigitRE = attrs.getValue("DIGIT_RE");
-
-			tmp = attrs.getValue("NO_WORD_SEP");
-			if (tmp != null)
-				lastNoWordSep = tmp;
-
-			tmp = attrs.getValue("AT_CHAR");
-			if (tmp != null)
-			{
-				try
-				{
-					termChar = Integer.parseInt(tmp);
-				}
-				catch (NumberFormatException e)
-				{
-					error("termchar-invalid",tmp);
-					termChar = -1;
-				}
-			}
-
-			lastEscape = attrs.getValue("ESCAPE");;
-			lastSetName = attrs.getValue("SET");;
-
-			tmp = attrs.getValue("DELEGATE");
-			if (tmp != null)
-			{
-				String delegateMode, delegateSetName;
-
-				int index = tmp.indexOf("::");
-
-				if(index != -1)
-				{
-					delegateMode = tmp.substring(0,index);
-					delegateSetName = tmp.substring(index + 2);
-				}
-				else
-				{
-					delegateMode = modeName;
-					delegateSetName = tmp;
-				}
-
-				TokenMarker delegateMarker = getTokenMarker(delegateMode);
-				if(delegateMarker == null)
-					error("delegate-invalid",tmp);
-				else
-				{
-					lastDelegateSet = delegateMarker
-						.getRuleSet(delegateSetName);
-					if(delegateMarker == marker
-						&& lastDelegateSet == null)
-					{
-						// stupid hack to handle referencing
-						// a rule set that is defined later!
-						lastDelegateSet = new ParserRuleSet(
-							delegateMode,
-							delegateSetName);
-						lastDelegateSet.setDefault(Token.INVALID);
-						marker.addRuleSet(lastDelegateSet);
-					}
-					else if(lastDelegateSet == null)
-						error("delegate-invalid",tmp);
-				}
-			}
-
-			tmp = attrs.getValue("DEFAULT");
-			if (tmp != null)
-			{
-				lastDefaultID = Token.stringToToken(tmp);
-				if(lastDefaultID == -1)
-				{
-					error("token-invalid",tmp);
-					lastDefaultID = Token.NULL;
-				}
-			}
-
-			tmp = attrs.getValue("HASH_CHAR");
-			if (tmp != null)
-			{
-				if(tmp.length() != 1)
-				{
-					error("hash-char-invalid",tmp);
-					lastDefaultID = Token.NULL;
-				}
-				else
-					lastHashChar = tmp.charAt(0);
-			}
-		}
-
-		public void setText(char[] c, int off, int len)
-		{
-			if (tagName.equals("EOL_SPAN") ||
-				tagName.equals("EOL_SPAN_REGEXP") ||
-				tagName.equals("MARK_PREVIOUS") ||
-				tagName.equals("MARK_FOLLOWING") ||
-				tagName.equals("SEQ") ||
-				tagName.equals("SEQ_REGEXP") ||
-				tagName.equals("BEGIN")
-			)
-			{
-				TagDecl target = this;
-				if (tagName.equals("BEGIN"))
-					target = (TagDecl) stateStack.get(stateStack.size() - 2);
-
-				if (target.lastStart == null)
-				{
-					target.lastStart = new StringBuffer();
-					target.lastStart.append(c, off, len);
-					target.lastStartPosMatch = ((target.lastAtLineStart ? ParserRule.AT_LINE_START : 0)
-						| (target.lastAtWhitespaceEnd ? ParserRule.AT_WHITESPACE_END : 0)
-						| (target.lastAtWordStart ? ParserRule.AT_WORD_START : 0));
-					target.lastAtLineStart = false;
-					target.lastAtWordStart = false;
-					target.lastAtWhitespaceEnd = false;
-				}
-				else
-				{
-					target.lastStart.append(c, off, len);
-				}
-			}
-			else if (tagName.equals("END"))
-			{
-				TagDecl target = (TagDecl) stateStack.get(stateStack.size() - 2);
-				if (target.lastEnd == null)
-				{
-					target.lastEnd = new StringBuffer();
-					target.lastEnd.append(c, off, len);
-					target.lastEndPosMatch = ((target.lastAtLineStart ? ParserRule.AT_LINE_START : 0)
-						| (target.lastAtWhitespaceEnd ? ParserRule.AT_WHITESPACE_END : 0)
-						| (target.lastAtWordStart ? ParserRule.AT_WORD_START : 0));
-					target.lastAtLineStart = false;
-					target.lastAtWordStart = false;
-					target.lastAtWhitespaceEnd = false;
-				}
-				else
-				{
-					target.lastEnd.append(c, off, len);
-				}
-			}
-			else
-			{
-				if (lastKeyword == null)
-					lastKeyword = new StringBuffer();
-				lastKeyword.append(c, off, len);
-			}
-		}
-
-		public String tagName;
-		public StringBuffer lastStart;
-		public StringBuffer lastEnd;
-		public StringBuffer lastKeyword;
-		public String lastSetName;
-		public String lastEscape;
-		public ParserRuleSet lastDelegateSet;
-		public String lastNoWordSep = "_";
-		public ParserRuleSet rules;
-		public byte lastDefaultID = Token.NULL;
-		public byte lastTokenID;
-		public int termChar = -1;
-		public boolean lastNoLineBreak;
-		public boolean lastNoWordBreak;
-		public boolean lastExcludeMatch;
-		public boolean lastIgnoreCase = true;
-		public boolean lastHighlightDigits;
-		public boolean lastAtLineStart;
-		public boolean lastAtWhitespaceEnd;
-		public boolean lastAtWordStart;
-		public boolean lastNoEscape;
-		public int lastStartPosMatch;
-		public int lastEndPosMatch;
-		public String lastDigitRE;
-		public char lastHashChar;
-
 	}
 
+	private void addRule(ParserRule r)
+	{
+		rules.addRule(r);
+	}
+
+	private void setTerminateChar(int atChar)
+	{
+		rules.setTerminateChar(atChar);
+	}
+
+	private String pushElement(String name)
+	{
+		name = (name == null) ? null : name.intern();
+
+		stateStack.push(name);
+
+		return name;
+	}
+
+	private String peekElement()
+	{
+		return (String) stateStack.peek();
+	}
+
+	private String popElement()
+	{
+		return (String) stateStack.pop();
+	}
+
+	private void error(String msg)
+	{
+		_error(jEdit.getProperty("xmode-error." + msg));
+	}
+
+	private void error(String msg, String subst)
+	{
+		_error(jEdit.getProperty("xmode-error." + msg,new String[] { subst }));
+	}
+
+	private void error(String msg, Throwable t)
+	{
+		_error(jEdit.getProperty("xmode-error." + msg,new String[] { t.toString() }));
+		Log.log(Log.ERROR,this,t);
+	}
+
+	private void _error(String msg)
+	{
+		Object[] args = { path, new Integer(parser.getLineNumber()),
+			new Integer(parser.getColumnNumber()), msg };
+
+		GUIUtilities.error(null,"xmode-error",args);
+	}
 }

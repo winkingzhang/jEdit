@@ -1,8 +1,5 @@
 /*
  * SelectLineRange.java - Selects a range of lines
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 1999, 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
@@ -22,18 +19,16 @@
 
 package org.gjt.sp.jedit.gui;
 
-//{{{ Imports
 import javax.swing.*;
 import javax.swing.border.*;
+import javax.swing.text.Element;
 import java.awt.*;
 import java.awt.event.*;
 import org.gjt.sp.jedit.textarea.*;
 import org.gjt.sp.jedit.*;
-//}}}
 
 public class SelectLineRange extends EnhancedDialog implements ActionListener
 {
-	//{{{ SelectLineRange constructor
 	public SelectLineRange(View view)
 	{
 		super(view,jEdit.getProperty("selectlinerange.title"),true);
@@ -73,10 +68,10 @@ public class SelectLineRange extends EnhancedDialog implements ActionListener
 
 		pack();
 		setLocationRelativeTo(view);
-		setVisible(true);
-	} //}}}
+		show();
+	}
 
-	//{{{ ok() method
+	// EnhancedDialog implementation
 	public void ok()
 	{
 		int startLine;
@@ -94,34 +89,30 @@ public class SelectLineRange extends EnhancedDialog implements ActionListener
 		}
 
 		Buffer buffer = view.getBuffer();
+		Element map = buffer.getDefaultRootElement();
 
-		if(startLine < 0 || endLine >= buffer.getLineCount()
-			|| startLine > endLine)
+		if(startLine < 0 || endLine >= map.getElementCount())
 		{
 			getToolkit().beep();
 			return;
 		}
 
+		int startOffset = map.getElement(startLine).getStartOffset();
+		int endOffset = map.getElement(endLine).getEndOffset() - 1;
+
 		JEditTextArea textArea = view.getTextArea();
-		Selection s = new Selection.Range(
-			buffer.getLineStartOffset(startLine),
-			buffer.getLineEndOffset(endLine) - 1);
-		if(textArea.isMultipleSelectionEnabled())
-			textArea.addToSelection(s);
-		else
-			textArea.setSelection(s);
-		textArea.moveCaretPosition(buffer.getLineEndOffset(endLine) - 1);
+		textArea.setSelection(new Selection.Range(startOffset,endOffset));
+		textArea.moveCaretPosition(endOffset);
 
 		dispose();
-	} //}}}
+	}
 
-	//{{{ cancel() method
 	public void cancel()
 	{
 		dispose();
-	} //}}}
+	}
+	// end EnhancedDialog implementation
 
-	//{{{ actionPerformed() method
 	public void actionPerformed(ActionEvent evt)
 	{
 		Object source = evt.getSource();
@@ -129,19 +120,15 @@ public class SelectLineRange extends EnhancedDialog implements ActionListener
 			ok();
 		else if(source == cancel)
 			cancel();
-	} //}}}
+	}
 
-	//{{{ Private members
-
-	//{{{ Instance variables
+	// private members
 	private View view;
 	private JTextField startField;
 	private JTextField endField;
 	private JButton ok;
 	private JButton cancel;
-	//}}}
 
-	//{{{ createFieldPanel() method
 	private JPanel createFieldPanel()
 	{
 		GridBagLayout layout = new GridBagLayout();
@@ -178,7 +165,5 @@ public class SelectLineRange extends EnhancedDialog implements ActionListener
 		panel.add(endField);
 
 		return panel;
-	} //}}}
-
-	//}}}
+	}
 }

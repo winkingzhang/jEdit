@@ -5,9 +5,11 @@
 <MODE>
 	<PROPS>
 		<PROPERTY NAME="lineComment" VALUE="%" />
-		<PROPERTY NAME="wordBreakChars" VALUE="{}" />
 	</PROPS>
-	<RULES IGNORE_CASE="FALSE">
+	<RULES>
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<!-- $$...$$ -->
 		<SPAN TYPE="MARKUP" DELEGATE="MATH">
 			<BEGIN>$$</BEGIN>
@@ -31,24 +33,6 @@
 		<SEQ TYPE="KEYWORD1">\\</SEQ>
 		<SEQ TYPE="KEYWORD1">\%</SEQ>
 
-		<!-- \iffalse ... \fi - a block comment -->
-                <SPAN TYPE="COMMENT1">
-                        <BEGIN>\iffalse</BEGIN>
-                        <END>\fi</END>
-                </SPAN>
-
-		<!-- \begin{verbatim} ... \end{verbatim} -->
-                <SPAN TYPE="KEYWORD1" DELEGATE="VERBATIM">
-                        <BEGIN>\begin{verbatim}</BEGIN>
-                        <END>\end{verbatim}</END>
-                </SPAN>
-
-		<!-- \verb|sometext| -->
-		<SPAN TYPE="KEYWORD1" DELEGATE="VERBATIM"
-			NO_LINE_BREAK="TRUE">
-                        <BEGIN>\verb|</BEGIN>
-                        <END>|</END>
-                </SPAN>
 		<!-- \... commands -->
 		<MARK_FOLLOWING TYPE="KEYWORD1">\</MARK_FOLLOWING>
 
@@ -56,13 +40,39 @@
 		<EOL_SPAN TYPE="COMMENT1">%</EOL_SPAN>
 
 		<!-- word separators -->
+		<SEQ TYPE="NULL">)</SEQ>
+		<SEQ TYPE="NULL">(</SEQ>
 		<SEQ TYPE="OPERATOR">{</SEQ>
 		<SEQ TYPE="OPERATOR">}</SEQ>
 		<SEQ TYPE="OPERATOR">[</SEQ>
 		<SEQ TYPE="OPERATOR">]</SEQ>
+		<SEQ TYPE="NULL">=</SEQ>
+		<SEQ TYPE="NULL">!</SEQ>
+		<SEQ TYPE="NULL">+</SEQ>
+		<SEQ TYPE="NULL">-</SEQ>
+		<SEQ TYPE="NULL">/</SEQ>
+		<SEQ TYPE="NULL">*</SEQ>
+		<SEQ TYPE="NULL">&gt;</SEQ>
+		<SEQ TYPE="NULL">&lt;</SEQ>
+		<SEQ TYPE="NULL">&amp;</SEQ>
+		<SEQ TYPE="NULL">|</SEQ>
+		<SEQ TYPE="NULL">^</SEQ>
+		<SEQ TYPE="NULL">~</SEQ>
+		<SEQ TYPE="NULL">.</SEQ>
+		<SEQ TYPE="NULL">,</SEQ>
+		<SEQ TYPE="NULL">;</SEQ>
+		<SEQ TYPE="NULL">?</SEQ>
+		<SEQ TYPE="NULL">:</SEQ>
+		<SEQ TYPE="NULL">'</SEQ>
+		<SEQ TYPE="NULL">"</SEQ>
+		<SEQ TYPE="NULL">`</SEQ>
 	</RULES>
 
 	<RULES SET="MATH" DEFAULT="MARKUP">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<!-- some commands must be handled specially -->
 		<SEQ TYPE="KEYWORD3">\$</SEQ>
 		<SEQ TYPE="KEYWORD3">\\</SEQ>
@@ -102,6 +112,4 @@
 		<!-- comments -->
 		<EOL_SPAN TYPE="COMMENT1">%</EOL_SPAN>
 	</RULES>
-
-	<RULES SET="VERBATIM" DEFAULT="NULL" />
 </MODE>

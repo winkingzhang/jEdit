@@ -1,8 +1,5 @@
 /*
  * BeanShellErrorDialog.java - BeanShell execution error dialog box
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 2001 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
@@ -22,29 +19,68 @@
 
 package org.gjt.sp.jedit.gui;
 
-//{{{ Imports
 import javax.swing.*;
+import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
 import org.gjt.sp.jedit.*;
-//}}}
 
-/**
- * A dialog box showing a stack trace. Perhaps badly named, since any error, not
- * just a BeanShell error can be shown.
- * @author Slava Pestov
- * @version $Id$
- */
-public class BeanShellErrorDialog extends TextAreaDialog
+public class BeanShellErrorDialog extends EnhancedDialog
 {
-	public BeanShellErrorDialog(Frame frame, Throwable t)
+	public BeanShellErrorDialog(View view, String message)
 	{
-		super(frame,"beanshell-error",t);
+		super(view,jEdit.getProperty("beanshell-error.title"),true);
+
+		JPanel content = new JPanel(new BorderLayout());
+		content.setBorder(new EmptyBorder(12,12,12,12));
+		setContentPane(content);
+
+		JPanel caption = new JPanel(new GridLayout(2,1,3,3));
+		caption.setBorder(new EmptyBorder(0,0,3,0));
+		caption.add(new JLabel(jEdit.getProperty("beanshell-error.message.1")));
+		caption.add(new JLabel(jEdit.getProperty("beanshell-error.message.2")));
+		content.add(BorderLayout.NORTH,caption);
+
+		JTextArea textArea = new JTextArea(10,60);
+		textArea.setText(message);
+		textArea.setLineWrap(true);
+		textArea.setWrapStyleWord(true);
+		content.add(BorderLayout.CENTER,new JScrollPane(textArea));
+
+		JPanel panel = new JPanel();
+		panel.setLayout(new BoxLayout(panel,BoxLayout.X_AXIS));
+		panel.setBorder(new EmptyBorder(12,0,0,0));
+		panel.add(Box.createGlue());
+		JButton ok = new JButton(jEdit.getProperty("common.ok"));
+		ok.addActionListener(new ActionHandler());
+		panel.add(ok);
+		panel.add(Box.createGlue());
+		content.add(panel, BorderLayout.SOUTH);
+
+		getRootPane().setDefaultButton(ok);
+
+		pack();
+		setLocationRelativeTo(view);
+		show();
 	}
 
-	// for ABI compatibility
-	public BeanShellErrorDialog(View view, Throwable t)
+	// EnhancedDialog implementation
+	public void ok()
 	{
-		this((Frame)view,t);
+		dispose();
+	}
+
+	public void cancel()
+	{
+		dispose();
+	}
+	// end EnhancedDialog implementation
+
+	class ActionHandler implements ActionListener
+	{
+		public void actionPerformed(ActionEvent evt)
+		{
+			dispose();
+		}
 	}
 }

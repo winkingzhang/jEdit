@@ -31,7 +31,7 @@ import org.gjt.sp.jedit.EBMessage;
  *
  * @since jEdit 2.3pre2
  */
-public class EditorStarted extends EBMessage
+public class EditorStarted extends EBMessage.NonVetoable
 {
 	/**
 	 * Creates a new editor started message.

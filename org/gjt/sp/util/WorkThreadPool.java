@@ -1,8 +1,5 @@
 /*
- * WorkThreadPool.java - Background thread pool that does stuff
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
+ * WorkThread.java - Background thread that does stuff
  * Copyright (C) 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
@@ -22,10 +19,8 @@
 
 package org.gjt.sp.util;
 
-//{{{ Imports
 import javax.swing.event.EventListenerList;
 import javax.swing.SwingUtilities;
-//}}}
 
 /**
  * A pool of work threads.
@@ -36,7 +31,6 @@ import javax.swing.SwingUtilities;
  */
 public class WorkThreadPool
 {
-	//{{{ WorkThreadPool constructor
 	/**
 	 * Creates a new work thread pool with the specified number of
 	 * work threads.
@@ -58,23 +52,13 @@ public class WorkThreadPool
 		}
 		else
 			Log.log(Log.WARNING,this,"Async I/O disabled");
-	} //}}}
+	}
 
-	//{{{ start() method
 	/**
 	 * Starts all the threads in this thread pool.
 	 */
 	public void start()
 	{
-		/* not really needed since threads don't start until after */
-		synchronized(lock)
-		{
-			started = true;
-
-			if(awtRequestCount != 0 && requestCount == 0)
-				queueAWTRunner();
-		}
-
 		if(threads != null)
 		{
 			for(int i = 0; i < threads.length; i++)
@@ -82,9 +66,8 @@ public class WorkThreadPool
 				threads[i].start();
 			}
 		}
-	} //}}}
+	}
 
-	//{{{ addWorkRequest() method
 	/**
 	 * Adds a work request to the queue.
 	 * @param run The runnable
@@ -99,24 +82,24 @@ public class WorkThreadPool
 			return;
 		}
 
+		// if inAWT is set and there are no requests
+		// pending, execute it immediately
+		if(inAWT && requestCount == 0 && awtRequestCount == 0)
+		{
+// 			Log.log(Log.DEBUG,this,"AWT immediate: " + run);
+
+			if(SwingUtilities.isEventDispatchThread())
+				run.run();
+			else
+				SwingUtilities.invokeLater(run);
+
+			return;
+		}
+
+		Request request = new Request(run);
+
 		synchronized(lock)
 		{
-			//{{{ if there are no requests, execute AWT requests immediately
-			if(started && inAWT && requestCount == 0 && awtRequestCount == 0)
-			{
-//				Log.log(Log.DEBUG,this,"AWT immediate: " + run);
-
-				if(SwingUtilities.isEventDispatchThread())
-					run.run();
-				else
-					SwingUtilities.invokeLater(run);
-
-				return;
-			} //}}}
-
-			Request request = new Request(run);
-
-			//{{{ Add to AWT queue...
 			if(inAWT)
 			{
 				if(firstAWTRequest == null && lastAWTRequest == null)
@@ -132,10 +115,9 @@ public class WorkThreadPool
 				// if no requests are running, requestDone()
 				// will not be called, so we must queue the
 				// AWT runner ourselves.
-				if(started && requestCount == 0)
+				if(requestCount == 0)
 					queueAWTRunner();
-			} //}}}
-			//{{{ Add to work thread queue...
+			}
 			else
 			{
 				if(firstRequest == null && lastRequest == null)
@@ -147,13 +129,12 @@ public class WorkThreadPool
 				}
 
 				requestCount++;
-			} //}}}
+			}
 
-			lock.notifyAll();
+			lock.notify();
 		}
-	} //}}}
+	}
 
-	//{{{ waitForRequests() method
 	/**
 	 * Waits until all requests are complete.
 	 */
@@ -193,18 +174,16 @@ public class WorkThreadPool
 				Log.log(Log.ERROR,this,e);
 			}
 		}
-	} //}}}
+	}
 
-	//{{{ getRequestCount() method
 	/**
 	 * Returns the number of pending requests.
 	 */
 	public int getRequestCount()
 	{
 		return requestCount;
-	} //}}}
+	}
 
-	//{{{ getThreadCount() method
 	/**
 	 * Returns the number of threads in this pool.
 	 */
@@ -214,9 +193,8 @@ public class WorkThreadPool
 			return 0;
 		else
 			return threads.length;
-	} //}}}
+	}
 
-	//{{{ getThread() method
 	/**
 	 * Returns the specified thread.
 	 * @param index The index of the thread
@@ -224,60 +202,30 @@ public class WorkThreadPool
 	public WorkThread getThread(int index)
 	{
 		return threads[index];
-	} //}}}
+	}
 
-	//{{{ addProgressListener() method
 	/**
 	 * Adds a progress listener to this thread pool.
 	 * @param listener The listener
 	 */
-	public void addProgressListener(WorkThreadProgressListener listener)
+	public final void addProgressListener(WorkThreadProgressListener listener)
 	{
 		listenerList.add(WorkThreadProgressListener.class,listener);
-	} //}}}
+	}
 
-	//{{{ removeProgressListener() method
 	/**
 	 * Removes a progress listener from this thread pool.
 	 * @param listener The listener
 	 */
-	public void removeProgressListener(WorkThreadProgressListener listener)
+	public final void removeProgressListener(WorkThreadProgressListener listener)
 	{
 		listenerList.remove(WorkThreadProgressListener.class,listener);
-	} //}}}
+	}
 
-	//{{{ Package-private members
-	Object lock = new Object();
-	Object waitForAllLock = new Object();
+	// package-private members
+	Object lock = new String("Work thread pool request queue lock");
+	Object waitForAllLock = new String("Work thread pool waitForAll() notifier");
 
-	//{{{ fireStatusChanged() method
-	void fireStatusChanged(WorkThread thread)
-	{
-		final Object[] listeners = listenerList.getListenerList();
-		if(listeners.length != 0)
-		{
-			int index = 0;
-			for(int i = 0; i < threads.length; i++)
-			{
-				if(threads[i] == thread)
-				{
-					index = i;
-					break;
-				}
-			}
-
-			for(int i = listeners.length - 2; i >= 0; i--)
-			{
-				if(listeners[i] == WorkThreadProgressListener.class)
-				{
-					((WorkThreadProgressListener)listeners[i+1])
-						.statusUpdate(WorkThreadPool.this,index);
-				}
-			}
-		}
-	} //}}}
-
-	//{{{ fireProgressChanged() method
 	void fireProgressChanged(WorkThread thread)
 	{
 		final Object[] listeners = listenerList.getListenerList();
@@ -293,18 +241,24 @@ public class WorkThreadPool
 				}
 			}
 
-			for(int i = listeners.length - 2; i >= 0; i--)
+			final int _index = index;
+			SwingUtilities.invokeLater(new Runnable()
 			{
-				if(listeners[i] == WorkThreadProgressListener.class)
+				public void run()
 				{
-					((WorkThreadProgressListener)listeners[i+1])
-						.progressUpdate(WorkThreadPool.this,index);
+					for(int i = listeners.length - 2; i >= 0; i--)
+					{
+						if(listeners[i] == WorkThreadProgressListener.class)
+						{
+							((WorkThreadProgressListener)listeners[i+1])
+								.progressUpdate(WorkThreadPool.this,_index);
+						}
+					}
 				}
-			}
+			});
 		}
-	} //}}}
+	}
 
-	//{{{ requestDone() method
 	void requestDone()
 	{
 		synchronized(lock)
@@ -314,9 +268,8 @@ public class WorkThreadPool
 			if(requestCount == 0 && firstAWTRequest != null)
 				queueAWTRunner();
 		}
-	} //}}}
+	}
 
-	//{{{ getNextRequest() method
 	Request getNextRequest()
 	{
 		synchronized(lock)
@@ -346,14 +299,9 @@ public class WorkThreadPool
 
 			return request;
 		}
-	} //}}}
+	}
 
-	//}}}
-
-	//{{{ Private members
-
-	//{{{ Instance variables
-	private boolean started;
+	// private members
 	private ThreadGroup threadGroup;
 	private WorkThread[] threads;
 
@@ -369,20 +317,15 @@ public class WorkThreadPool
 	private int awtRequestCount;
 
 	private EventListenerList listenerList;
-	//}}}
 
-	//{{{ doAWTRequests() method
-	/** Must always be called with the lock held. */
 	private void doAWTRequests()
 	{
-		while(requestCount == 0 && firstAWTRequest != null)
+		while(firstAWTRequest != null)
 		{
 			doAWTRequest(getNextAWTRequest());
 		}
-	} //}}}
+	}
 
-	//{{{ doAWTRequest() method
-	/** Must always be called with the lock held. */
 	private void doAWTRequest(Request request)
 	{
 //		Log.log(Log.DEBUG,this,"Running in AWT thread: " + request);
@@ -399,51 +342,48 @@ public class WorkThreadPool
 		}
 
 		awtRequestCount--;
-	} //}}}
+	}
 
-	//{{{ queueAWTRunner() method
-	/** Must always be called with the lock held. */
 	private void queueAWTRunner()
 	{
 		if(!awtRunnerQueued)
 		{
 			awtRunnerQueued = true;
 			SwingUtilities.invokeLater(new RunRequestsInAWTThread());
-//			Log.log(Log.DEBUG,this,"AWT runner queued");
+			//Log.log(Log.DEBUG,this,"AWT runner queued");
 		}
-	} //}}}
+	}
 
-	//{{{ getNextAWTRequest() method
 	private Request getNextAWTRequest()
 	{
-		Request request = firstAWTRequest;
-		firstAWTRequest = firstAWTRequest.next;
-		if(firstAWTRequest == null)
-			lastAWTRequest = null;
-
-		if(request.alreadyRun)
-			throw new InternalError("AIEE!!! Request run twice!!! " + request.run);
-		request.alreadyRun = true;
-
-		/* StringBuffer buf = new StringBuffer("AWT request queue is now: ");
-		Request _request = request.next;
-		while(_request != null)
+		synchronized(lock)
 		{
-			buf.append(_request.id);
-			if(_request.next != null)
-				buf.append(",");
-			_request = _request.next;
+			Request request = firstAWTRequest;
+			firstAWTRequest = firstAWTRequest.next;
+			if(firstAWTRequest == null)
+				lastAWTRequest = null;
+
+			if(request.alreadyRun)
+				throw new InternalError("AIEE!!! Request run twice!!! " + request.run);
+			request.alreadyRun = true;
+
+			/* StringBuffer buf = new StringBuffer("AWT request queue is now: ");
+			Request _request = request.next;
+			while(_request != null)
+			{
+				buf.append(_request.id);
+				if(_request.next != null)
+					buf.append(",");
+				_request = _request.next;
+			}
+			Log.log(Log.DEBUG,this,buf.toString()); */
+
+			return request;
 		}
-		Log.log(Log.DEBUG,this,buf.toString()); */
-
-		return request;
-	} //}}}
-
-	//}}}
+	}
 
 	static int ID;
 
-	//{{{ Request class
 	static class Request
 	{
 		int id = ++ID;
@@ -463,19 +403,53 @@ public class WorkThreadPool
 		{
 			return "[id=" + id + ",run=" + run + "]";
 		}
-	} //}}}
+	}
 
-	//{{{ RunRequestsInAWTThread class
 	class RunRequestsInAWTThread implements Runnable
 	{
 		public void run()
 		{
-			synchronized(lock)
-			{
-				awtRunnerQueued = false;
-				if(requestCount == 0)
-					doAWTRequests();
-			}
+			awtRunnerQueued = false;
+			doAWTRequests();
 		}
-	} //}}}
+	}
+
 }
+
+/*
+ * ChangeLog:
+ * $Log$
+ * Revision 1.1  2001/09/02 05:38:26  spestov
+ * Initial revision
+ *
+ * Revision 1.10  2000/12/06 07:00:41  sp
+ * Lotsa bug fixes
+ *
+ * Revision 1.9  2000/11/21 02:58:04  sp
+ * 2.7pre2 finished
+ *
+ * Revision 1.8  2000/10/15 04:10:35  sp
+ * bug fixes
+ *
+ * Revision 1.7  2000/08/27 02:06:52  sp
+ * Filter combo box changed to a text field in VFS browser, passive mode FTP toggle
+ *
+ * Revision 1.6  2000/08/22 07:25:01  sp
+ * Improved abbrevs, bug fixes
+ *
+ * Revision 1.5  2000/07/26 07:48:46  sp
+ * stuff
+ *
+ * Revision 1.4  2000/07/22 12:37:39  sp
+ * WorkThreadPool bug fix, IORequest.load() bug fix, version wound back to 2.6
+ *
+ * Revision 1.3  2000/07/22 06:22:27  sp
+ * I/O progress monitor done
+ *
+ * Revision 1.2  2000/07/22 03:27:04  sp
+ * threaded I/O improved, autosave rewrite started
+ *
+ * Revision 1.1  2000/07/21 10:23:49  sp
+ * Multiple work threads
+ *
+ */

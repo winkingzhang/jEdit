@@ -1,9 +1,6 @@
 /*
  * AllBufferSet.java - All buffer matcher
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1999, 2000, 2001 Slava Pestov
+ * Copyright (C) 1999, 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,13 +19,10 @@
 
 package org.gjt.sp.jedit.search;
 
-//{{{ Imports
-import java.awt.Component;
-import java.util.ArrayList;
-import java.util.regex.Pattern;
+import gnu.regexp.*;
+import java.util.Vector;
 import org.gjt.sp.jedit.*;
 import org.gjt.sp.util.Log;
-//}}}
 
 /**
  * A file set for searching all open buffers.
@@ -37,7 +31,6 @@ import org.gjt.sp.util.Log;
  */
 public class AllBufferSet extends BufferListSet
 {
-	//{{{ AllBufferSet constructor
 	/**
 	 * Creates a new all buffer set.
 	 * @param glob The filename glob
@@ -45,10 +38,11 @@ public class AllBufferSet extends BufferListSet
 	 */
 	public AllBufferSet(String glob)
 	{
-		this.glob = glob;
-	} //}}}
+		super(listFiles(glob));
 
-	//{{{ getFileFilter() method
+		this.glob = glob;
+	}
+
 	/**
 	 * Returns the filename filter.
 	 * @since jEdit 2.7pre3
@@ -56,9 +50,8 @@ public class AllBufferSet extends BufferListSet
 	public String getFileFilter()
 	{
 		return glob;
-	} //}}}
+	}
 
-	//{{{ getCode() method
 	/**
 	 * Returns the BeanShell code that will recreate this file set.
 	 * @since jEdit 2.7pre3
@@ -67,36 +60,34 @@ public class AllBufferSet extends BufferListSet
 	{
 		return "new AllBufferSet(\"" + MiscUtilities.charsToEscapes(glob)
 			+ "\")";
-	} //}}}
+	}
 
-	//{{{ Instance variables
+	// private members
 	private String glob;
-	//}}}
 
-	//{{{ _getFiles() method
-	protected String[] _getFiles(Component comp)
+	private static Vector listFiles(String glob)
 	{
 		Buffer[] buffers = jEdit.getBuffers();
-		ArrayList returnValue = new ArrayList(buffers.length);
+		Vector vector = new Vector(buffers.length);
 
-		Pattern filter;
+		RE filter;
 		try
 		{
-			filter = Pattern.compile(MiscUtilities.globToRE(glob));
+			filter = new RE(MiscUtilities.globToRE(glob));
 		}
 		catch(Exception e)
 		{
-			Log.log(Log.ERROR,this,e);
-			return null;
+			Log.log(Log.ERROR,DirectoryListSet.class,e);
+			return vector;
 		}
 
 		for(int i = 0; i < buffers.length; i++)
 		{
 			Buffer buffer = buffers[i];
-			if(filter.matcher(buffer.getName()).matches())
-				returnValue.add(buffer.getPath());
+			if(filter.isMatch(buffer.getName()))
+				vector.addElement(buffer.getPath());
 		}
 
-		return (String[])returnValue.toArray(new String[returnValue.size()]);
-	} //}}}
+		return vector;
+	}
 }

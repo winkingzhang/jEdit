@@ -29,7 +29,7 @@ import org.gjt.sp.jedit.EBMessage;
  *
  * @since jEdit 2.3pre2
  */
-public class EditorExiting extends EBMessage
+public class EditorExiting extends EBMessage.NonVetoable
 {
 	/**
 	 * Creates a new editor exiting message.

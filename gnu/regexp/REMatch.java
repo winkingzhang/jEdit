@@ -33,20 +33,12 @@ public final class REMatch implements Serializable, Cloneable {
 
     // These variables are package scope for fast access within the engine
     int eflags; // execution flags this match was made using
+    int offset; // offset in source text where match was tried
+    int anchor; // anchor position, for ANCHORINDEX option
 
-    // Offset in source text where match was tried.  This is zero-based;
-    // the actual position in the source text is given by (offset + anchor).
-    int offset;
-
-    // Anchor position refers to the index into the source input
-    // at which the matching operation began.
-    // This is also useful for the ANCHORINDEX option.
-    int anchor;
-
-    // Package scope; used by RE.
-    int index; // used while matching to mark current match position in input
     int[] start; // start positions (relative to offset) for each (sub)exp.
     int[] end;   // end positions for the same
+    int index; // used while matching to mark current match position in input
     REMatch next; // other possibility (to avoid having to use arrays)
 
     public Object clone() {
@@ -71,12 +63,12 @@ public final class REMatch implements Serializable, Cloneable {
 	next = other.next;
     }
 
-    REMatch(int subs, int anchor, int eflags) {
+    REMatch(int subs, int index, int eflags) {
 	start = new int[subs+1];
 	end = new int[subs+1];
-	this.anchor = anchor;
+	anchor = index;
 	this.eflags = eflags;
-	clear(anchor);
+	clear(index);
     }
 
     void finish(CharIndexed text) {
@@ -161,7 +153,7 @@ public final class REMatch implements Serializable, Cloneable {
 	if ((sub >= start.length) || (start[sub] == -1)) return "";
 	return (matchedText.substring(start[sub],end[sub]));
     }
-
+    
     /** 
      * Returns the index within the input string used to generate this match
      * where subexpression number <i>sub</i> begins, or <code>-1</code> if
@@ -216,7 +208,16 @@ public final class REMatch implements Serializable, Cloneable {
 	int x = end[sub];
 	return (x == -1) ? x : offset + x;
     }
-    
+
+    /**
+     * Returns the number of subexpressions in this match.
+     * @author Slava Pestov
+     */
+    public int getSubCount()
+    {
+        return start.length;
+    }
+
     /**
      * Substitute the results of this match to create a new string.
      * This is patterned after PERL, so the tokens to watch out for are

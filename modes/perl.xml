@@ -7,58 +7,51 @@
 		<PROPERTY NAME="lineComment" VALUE="#" />
 		<PROPERTY NAME="indentOpenBrackets" VALUE="{" />
 		<PROPERTY NAME="indentCloseBrackets" VALUE="}" />
-		<PROPERTY NAME="unalignedOpenBrackets" VALUE="(" />
-		<PROPERTY NAME="unalignedCloseBrackets" VALUE=")" />
-		<PROPERTY NAME="indentNextLine" VALUE="[^#]*\.\s*$" />
 	</PROPS>
-	<RULES ESCAPE="\" HIGHLIGHT_DIGITS="TRUE" IGNORE_CASE="FALSE">
+	<RULES ESCAPE="\" IGNORE_CASE="FALSE" HIGHLIGHT_DIGITS="TRUE">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<!-- Comments -->
 		<EOL_SPAN TYPE="COMMENT1">#</EOL_SPAN>
 
 		<!-- TYPE is LABEL so that =head1 and =cut are highlighted as so -->
-		<SPAN TYPE="LABEL" DELEGATE="POD">
-			<BEGIN AT_LINE_START="TRUE">=head1</BEGIN>
-			<END AT_LINE_START="TRUE">=cut</END>
+		<SPAN TYPE="LABEL" AT_LINE_START="TRUE" DELEGATE="POD">
+			<BEGIN>=head1</BEGIN>
+			<END>=cut</END>
 		</SPAN>
-		<SPAN TYPE="LABEL" DELEGATE="POD">
-			<BEGIN AT_LINE_START="TRUE">=head2</BEGIN>
-			<END AT_LINE_START="TRUE">=cut</END>
+		<SPAN TYPE="LABEL" AT_LINE_START="TRUE" DELEGATE="POD">
+			<BEGIN>=head2</BEGIN>
+			<END>=cut</END>
 		</SPAN>
-        <SPAN TYPE="LABEL" DELEGATE="POD">
-			<BEGIN AT_LINE_START="TRUE">=head3</BEGIN>
-			<END AT_LINE_START="TRUE">=cut</END>
+		<SPAN TYPE="LABEL" AT_LINE_START="TRUE" DELEGATE="POD">
+			<BEGIN>=item</BEGIN>
+			<END>=cut</END>
 		</SPAN>
-		<SPAN TYPE="LABEL" DELEGATE="POD">
-			<BEGIN AT_LINE_START="TRUE">=head4</BEGIN>
-			<END AT_LINE_START="TRUE">=cut</END>
+		<SPAN TYPE="LABEL" AT_LINE_START="TRUE" DELEGATE="POD">
+			<BEGIN>=over</BEGIN>
+			<END>=cut</END>
 		</SPAN>
-		<SPAN TYPE="LABEL" DELEGATE="POD">
-			<BEGIN AT_LINE_START="TRUE">=item</BEGIN>
-			<END AT_LINE_START="TRUE">=cut</END>
+		<SPAN TYPE="LABEL" AT_LINE_START="TRUE" DELEGATE="POD">
+			<BEGIN>=back</BEGIN>
+			<END>=cut</END>
 		</SPAN>
-		<SPAN TYPE="LABEL" DELEGATE="POD">
-			<BEGIN AT_LINE_START="TRUE">=over</BEGIN>
-			<END AT_LINE_START="TRUE">=cut</END>
+		<SPAN TYPE="LABEL" AT_LINE_START="TRUE" DELEGATE="POD">
+			<BEGIN>=pod</BEGIN>
+			<END>=cut</END>
 		</SPAN>
-		<SPAN TYPE="LABEL" DELEGATE="POD">
-			<BEGIN AT_LINE_START="TRUE">=back</BEGIN>
-			<END AT_LINE_START="TRUE">=cut</END>
+		<SPAN TYPE="LABEL" AT_LINE_START="TRUE" DELEGATE="POD">
+			<BEGIN>=for</BEGIN>
+			<END>=cut</END>
 		</SPAN>
-		<SPAN TYPE="LABEL" DELEGATE="POD">
-			<BEGIN AT_LINE_START="TRUE">=pod</BEGIN>
-			<END AT_LINE_START="TRUE">=cut</END>
+		<SPAN TYPE="LABEL" AT_LINE_START="TRUE" DELEGATE="POD">
+			<BEGIN>=begin</BEGIN>
+			<END>=cut</END>
 		</SPAN>
-		<SPAN TYPE="LABEL" DELEGATE="POD">
-			<BEGIN AT_LINE_START="TRUE">=for</BEGIN>
-			<END AT_LINE_START="TRUE">=cut</END>
-		</SPAN>
-		<SPAN TYPE="LABEL" DELEGATE="POD">
-			<BEGIN AT_LINE_START="TRUE">=begin</BEGIN>
-			<END AT_LINE_START="TRUE">=cut</END>
-		</SPAN>
-		<SPAN TYPE="LABEL" DELEGATE="POD">
-			<BEGIN AT_LINE_START="TRUE">=end</BEGIN>
-			<END AT_LINE_START="TRUE">=cut</END>
+		<SPAN TYPE="LABEL" AT_LINE_START="TRUE" DELEGATE="POD">
+			<BEGIN>=end</BEGIN>
+			<END>=cut</END>
 		</SPAN>
 
 		<!-- Variables -->
@@ -66,43 +59,33 @@
 		<SEQ TYPE="KEYWORD2">$'</SEQ>
 		<SEQ TYPE="KEYWORD2">$"</SEQ>
 
-		<!-- Some other things that confuse the mode file. -->
-		<SEQ TYPE="OPERATOR">*"</SEQ>
-		<SEQ TYPE="OPERATOR">*'</SEQ>
-		<SEQ TYPE="OPERATOR">&amp;"</SEQ>
-		<SEQ TYPE="OPERATOR">&amp;'</SEQ>
-
 		<SPAN TYPE="KEYWORD2" NO_LINE_BREAK="TRUE" DELEGATE="VARIABLE">
 			<BEGIN>${</BEGIN>
 			<END>}</END>
 		</SPAN>
 
-		<SEQ_REGEXP HASH_CHAR="$" TYPE="KEYWORD2">\$(?:#|\w)+</SEQ_REGEXP>
-		<SEQ_REGEXP HASH_CHAR="@" TYPE="KEYWORD2">@(?:#|\w)+</SEQ_REGEXP>
-		<SEQ_REGEXP HASH_CHAR="%" TYPE="KEYWORD2">%(?:#|\w)+</SEQ_REGEXP>
+		<MARK_FOLLOWING TYPE="KEYWORD2">$#</MARK_FOLLOWING>
+		<MARK_FOLLOWING TYPE="KEYWORD2">$</MARK_FOLLOWING>
 
 		<SPAN TYPE="KEYWORD2" NO_LINE_BREAK="TRUE" DELEGATE="VARIABLE">
 			<BEGIN>@{</BEGIN>
 			<END>}</END>
 		</SPAN>
 
+		<MARK_FOLLOWING TYPE="KEYWORD2">@</MARK_FOLLOWING>
+
 		<SPAN TYPE="KEYWORD2" NO_LINE_BREAK="TRUE" DELEGATE="VARIABLE">
 			<BEGIN>%{</BEGIN>
 			<END>}</END>
 		</SPAN>
 
-		<!-- Special handling for subs, since they can have a ' in the name;
-			 try to do highlight as well as possible - this version will
-			 highlight both 'sub' and the opening '{' as KEYWORD1, so the
-			 opening bracket will be different than other brackets. -->
-		<SPAN_REGEXP HASH_CHAR="s" TYPE="OPERATOR" NO_LINE_BREAK="FALSE" DELEGATE="SUB_NAME">
-			<BEGIN>sub\s</BEGIN>
-			<END>{</END>
-		</SPAN_REGEXP>
+		<MARK_FOLLOWING TYPE="KEYWORD2">%</MARK_FOLLOWING>
 
-		<!-- Highlight calls to subs that contain ' in the name. -->
-		<SEQ_REGEXP HASH_CHAR="&amp;" TYPE="FUNCTION"
-		>&amp;\p{Alpha}[\p{Alnum}_]*'\p{Alpha}[\p{Alnum}_]*</SEQ_REGEXP>
+		<!-- RegExps -->
+		<!-- <SPAN TYPE="LITERAL2" DELEGATE="REGEXP" NO_LINE_BREAK="TRUE" >
+			<BEGIN>/</BEGIN>
+			<END>/</END>
+		</SPAN> -->
 
 		<!-- Literals -->
 		<SPAN TYPE="LITERAL1" DELEGATE="LITERAL">
@@ -119,91 +102,25 @@
 			<BEGIN>`</BEGIN>
 			<END>`</END>
 		</SPAN>
-
-		<!-- Heredoc -->
-		<SPAN_REGEXP HASH_CHAR="&lt;" TYPE="LITERAL2" DELEGATE="LITERAL">
-		<BEGIN><![CDATA[<<\p{Space}*(['"])([\p{Space}\p{Alnum}_]*)\1;?\s*]]></BEGIN>
-		<END>$2</END>
-		</SPAN_REGEXP>
-		<SPAN_REGEXP HASH_CHAR="&lt;" TYPE="LITERAL2" DELEGATE="LITERAL">
-		<BEGIN><![CDATA[<<([\p{Alpha}_][\p{Alnum}_]*);?\s*]]></BEGIN>
-		<END>$1</END>
-		</SPAN_REGEXP>
-
-		<!-- jEdit 4.1 adds regular expression syntax rules so we can
-		     highlight this sort of crap. -->
-
-		<SEQ_REGEXP TYPE="MARKUP"
-                        HASH_CHAR="/"
-                        AT_WORD_START="TRUE"
-                >/[^\p{Blank}]*?[^\\]/</SEQ_REGEXP>
-
-        <!-- q//, qq//, qr//, qx//, tr///, y///, m//, s/// -->
-		<SEQ_REGEXP TYPE="MARKUP"
-                	HASH_CHAR="q"
-                	AT_WORD_START="TRUE">q(?:|[qx])\{.*\}</SEQ_REGEXP>
-		<SEQ_REGEXP TYPE="MARKUP"
-                	HASH_CHAR="q"
-                	AT_WORD_START="TRUE">qr\{.*\}[imosx]*</SEQ_REGEXP>
-
-		<!-- For multi-line 'q' statements.
-			 Do we really need one entry per possible delimiter? {, (, etc... -->
-		<SPAN_REGEXP HASH_CHAR="q" TYPE="MARKUP" AT_WORD_START="TRUE" NO_LINE_BREAK="FALSE">
-			<BEGIN>q(?:|[qrxw])\{</BEGIN>
-			<END>}</END>
-		</SPAN_REGEXP>
-		<SPAN_REGEXP HASH_CHAR="q" TYPE="MARKUP" AT_WORD_START="TRUE" NO_LINE_BREAK="FALSE">
-			<BEGIN>q(?:|[qrxw])\(</BEGIN>
-			<END>)</END>
-		</SPAN_REGEXP>
-		<SPAN_REGEXP HASH_CHAR="q" TYPE="MARKUP" AT_WORD_START="TRUE" NO_LINE_BREAK="FALSE">
-			<BEGIN>q(?:|[qrxw])\/</BEGIN>
-			<END>/</END>
-		</SPAN_REGEXP>
-
-		<SEQ_REGEXP TYPE="MARKUP"
-					HASH_CHAR="t"
-					AT_WORD_START="TRUE"
-		>tr([^\p{Alnum}\p{Space}])(?:.*?[^\\])*?\1(?:.*?[^\\])*?\1[cds]*</SEQ_REGEXP>
-
-		<SEQ_REGEXP TYPE="MARKUP"
-					HASH_CHAR="y"
-					AT_WORD_START="TRUE"
-		>y([^\p{Alnum}\p{Space}])(?:.*?[^\\])*?\1(?:.*?[^\\])*?\1[cds]*</SEQ_REGEXP>
-
-		<SEQ_REGEXP TYPE="MARKUP"
-					HASH_CHAR="m"
-					AT_WORD_START="TRUE"
-		>m\{(?:.*?[^\\])*?\}[sgiexom]*</SEQ_REGEXP>
-
-		<SEQ_REGEXP TYPE="MARKUP"
-					HASH_CHAR="m"
-					AT_WORD_START="TRUE"
-		>m([^\p{Alnum}\p{Space}])(?:.*?[^\\])\1[sgicxom]*</SEQ_REGEXP>
-
-		<SEQ_REGEXP TYPE="MARKUP"
-                        HASH_CHAR="s"
-                        AT_WORD_START="TRUE"
-                >s\s*\{(?:.*?[^\\])*?\}\s*\{(?:.*?[^\\])*?\}[sgiexom]*</SEQ_REGEXP>
-		<SEQ_REGEXP TYPE="MARKUP"
-                        HASH_CHAR="s"
-                        AT_WORD_START="TRUE"
-                >s([^\p{Alnum}\p{Space}])(?:.*?)\1(?:.*?)\1[sgiexom]*</SEQ_REGEXP>
-		<SEQ_REGEXP TYPE="MARKUP"
-			HASH_CHAR="/"
-			AT_WORD_START="TRUE"
-		>/[^\p{Blank}]*?/</SEQ_REGEXP>
+		
+		<!-- Readins -->
+		<SPAN TYPE="LITERAL1" DELEGATE="LITERAL">
+			<BEGIN>&lt;&lt;EOF</BEGIN>
+			<END>EOF</END>
+		</SPAN>
 
 		<!-- Operators -->
 		<SEQ TYPE="OPERATOR">|</SEQ>
 		<SEQ TYPE="OPERATOR">&amp;</SEQ>
 		<SEQ TYPE="OPERATOR">!</SEQ>
-		<SEQ TYPE="OPERATOR">&gt;=</SEQ>
-		<SEQ TYPE="OPERATOR">&lt;=</SEQ>
 		<SEQ TYPE="OPERATOR">&gt;</SEQ>
 		<SEQ TYPE="OPERATOR">&lt;</SEQ>
+		<SEQ TYPE="NULL">)</SEQ>
+		<SEQ TYPE="NULL">(</SEQ>
 		<SEQ TYPE="OPERATOR">=</SEQ>
 		<SEQ TYPE="OPERATOR">!</SEQ>
+		<SEQ TYPE="OPERATOR">&gt;=</SEQ>
+		<SEQ TYPE="OPERATOR">&lt;=</SEQ>
 		<SEQ TYPE="OPERATOR">+</SEQ>
 		<SEQ TYPE="OPERATOR">-</SEQ>
 		<SEQ TYPE="OPERATOR">/</SEQ>
@@ -212,11 +129,16 @@
 		<SEQ TYPE="OPERATOR">~</SEQ>
 		<SEQ TYPE="OPERATOR">}</SEQ>
 		<SEQ TYPE="OPERATOR">{</SEQ>
-		<SEQ TYPE="OPERATOR">?</SEQ>
-		<SEQ TYPE="OPERATOR">:</SEQ>
+		<SEQ TYPE="NULL">.</SEQ>
+		<SEQ TYPE="NULL">,</SEQ>
+		<SEQ TYPE="NULL">;</SEQ>
+		<SEQ TYPE="NULL">]</SEQ>
+		<SEQ TYPE="NULL">[</SEQ>
+		<SEQ TYPE="NULL">?</SEQ>
+		<SEQ TYPE="NULL">:</SEQ>
 
 		<!-- Keywords -->
-		<KEYWORDS>
+		<KEYWORDS IGNORE_CASE="FALSE">
 			<KEYWORD1>new</KEYWORD1>
 			<KEYWORD1>if</KEYWORD1>
 			<KEYWORD1>until</KEYWORD1>
@@ -248,7 +170,7 @@
 
 				Certain keywords have been commented out where they appear more
 				than once, and the y///, qx//, etc. functions have been removed,
-				since they would are colorized not as keywords, but with separate
+				since they would not be colorized as keywords, but with separate
 				rules.
 			-->
 
@@ -388,6 +310,7 @@
 			<KEYWORD1>next</KEYWORD1>
 			<KEYWORD1>redo</KEYWORD1>
 			<KEYWORD1>return</KEYWORD1>
+			<KEYWORD1>sub</KEYWORD1>
 			<KEYWORD1>wantarray</KEYWORD1>
 
 			<!-- Keywords related to scoping -->
@@ -395,7 +318,6 @@
 			<!--<KEYWORD1>import</KEYWORD1>-->
 			<KEYWORD1>local</KEYWORD1>
 			<KEYWORD1>my</KEYWORD1>
-			<KEYWORD1>our</KEYWORD1>
 			<KEYWORD1>package</KEYWORD1>
 			<KEYWORD1>use</KEYWORD1>
 
@@ -520,10 +442,18 @@
 	</RULES>
 
 	<RULES SET="POD" DEFAULT="COMMENT2">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<MARK_FOLLOWING TYPE="LABEL" AT_LINE_START="TRUE">=</MARK_FOLLOWING>
 	</RULES>
 
 	<RULES SET="LITERAL" DEFAULT="LITERAL1" ESCAPE="\">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<!-- Variables -->
 		<SPAN TYPE="KEYWORD2" NO_LINE_BREAK="TRUE" DELEGATE="VARIABLE">
 			<BEGIN>${</BEGIN>
@@ -574,6 +504,10 @@
 	</RULES>
 
 	<RULES SET="EXEC" DEFAULT="KEYWORD3" ESCAPE="\">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<!-- Comments -->
 		<EOL_SPAN TYPE="COMMENT1">#</EOL_SPAN>
 
@@ -602,23 +536,59 @@
 	</RULES>
 
 	<RULES SET="VARIABLE" DEFAULT="KEYWORD2" ESCAPE="\">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
+		<!-- Variables -->
 		<SPAN TYPE="KEYWORD2" NO_LINE_BREAK="TRUE" DELEGATE="VARIABLE">
-			<BEGIN>{</BEGIN>
+			<BEGIN>${</BEGIN>
 			<END>}</END>
 		</SPAN>
 
-		<SEQ TYPE="OPERATOR">-&gt;</SEQ>
-	</RULES>
+		<MARK_FOLLOWING TYPE="KEYWORD2">$</MARK_FOLLOWING>
 
-	<RULES SET="REGEXP" DEFAULT="MARKUP" ESCAPE="\">
-		<SEQ TYPE="MARKUP">)(</SEQ>
-	</RULES>
-
-	<RULES SET="SUB_NAME" DEFAULT="FUNCTION">
-		<EOL_SPAN TYPE="COMMENT1">#</EOL_SPAN>
-		<SPAN TYPE="OPERATOR" DELEGATE="MAIN">
-			<BEGIN>(</BEGIN>
-			<END>)</END>
+		<SPAN TYPE="KEYWORD2" NO_LINE_BREAK="TRUE" DELEGATE="VARIABLE">
+			<BEGIN>@{</BEGIN>
+			<END>}</END>
 		</SPAN>
+
+		<MARK_FOLLOWING TYPE="KEYWORD2">@</MARK_FOLLOWING>
+
+		<SPAN TYPE="KEYWORD2" NO_LINE_BREAK="TRUE" DELEGATE="VARIABLE">
+			<BEGIN>%{</BEGIN>
+			<END>}</END>
+		</SPAN>
+
+		<MARK_FOLLOWING TYPE="KEYWORD2">%</MARK_FOLLOWING>
+	</RULES>
+
+	<RULES SET="REGEXP" DEFAULT="LITERAL2" ESCAPE="\">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>    </WHITESPACE>
+
+		<!-- Variables -->
+		<SPAN TYPE="KEYWORD2" NO_LINE_BREAK="TRUE" DELEGATE="VARIABLE">
+			<BEGIN>${</BEGIN>
+			<END>}</END>
+		</SPAN>
+
+		<MARK_FOLLOWING TYPE="KEYWORD2">$#</MARK_FOLLOWING>
+		<MARK_FOLLOWING TYPE="KEYWORD2">$</MARK_FOLLOWING>
+
+		<SPAN TYPE="KEYWORD2" NO_LINE_BREAK="TRUE" DELEGATE="VARIABLE">
+			<BEGIN>@{</BEGIN>
+			<END>}</END>
+		</SPAN>
+
+		<MARK_FOLLOWING TYPE="KEYWORD2">@</MARK_FOLLOWING>
+
+		<SPAN TYPE="KEYWORD2" NO_LINE_BREAK="TRUE" DELEGATE="VARIABLE">
+			<BEGIN>%{</BEGIN>
+			<END>}</END>
+		</SPAN>
+
+		<MARK_FOLLOWING TYPE="KEYWORD2">%</MARK_FOLLOWING>
 	</RULES>
 </MODE>

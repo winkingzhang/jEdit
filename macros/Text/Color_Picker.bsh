@@ -18,6 +18,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  *
  * $Id$
+ *
  */
 
 selection = textArea.getSelectedText();
@@ -28,25 +29,8 @@ else
 
 color = JColorChooser.showDialog(view, "Color Picker", color);
 
-if (color != null){
-	if(buffer.isReadOnly())
-		Macros.error(view, "Buffer is read-only.");
-	else
-		textArea.setSelectedText(GUIUtilities.getColorHexString(color));
-}
-
-/*
-	Macro index data (in DocBook format)
-
-<listitem>
-    <para><filename>Color_Picker.bsh</filename></para>
-    <abstract><para>
-        Displays a color picker and inserts the selected color in
-        hexadecimal format, prefixed with a <quote>#</quote>.
-    </para></abstract>
-</listitem>
-
-*/
+if (color != null)
+    textArea.setSelectedText(GUIUtilities.getColorHexString(color));
 
 // end Color_Picker.bsh
 

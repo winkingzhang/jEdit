@@ -1,10 +1,6 @@
 /*
  * ParserRuleSet.java - A set of parser rules
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 1999 mike dillon
- * Portions copyright (C) 2001, 2002 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -23,10 +19,9 @@
 
 package org.gjt.sp.jedit.syntax;
 
-//{{{ Imports
-import java.util.*;
-import java.util.regex.Pattern;
-//}}}
+import java.util.Enumeration;
+import java.util.Vector;
+import javax.swing.text.Segment;
 
 /**
  * A set of parser rules.
@@ -35,106 +30,15 @@ import java.util.regex.Pattern;
  */
 public class ParserRuleSet
 {
-	//{{{ getStandardRuleSet() method
-	/**
-	 * Returns a parser rule set that highlights everything with the
-	 * specified token type.
-	 * @param id The token type
-	 */
-	public static ParserRuleSet getStandardRuleSet(byte id)
+	public ParserRuleSet()
 	{
-		return standard[id];
-	} //}}}
-
-	//{{{ ParserRuleSet constructor
-	public ParserRuleSet(String modeName, String setName)
-	{
-		this.modeName = modeName;
-		this.setName = setName;
 		ruleMapFirst = new ParserRule[RULE_BUCKET_COUNT];
 		ruleMapLast = new ParserRule[RULE_BUCKET_COUNT];
-		imports = new LinkedList();
-	} //}}}
+	}
 
-	//{{{ getModeName() method
-	public String getModeName()
-	{
-		return modeName;
-	} //}}}
-
-	//{{{ getSetName() method
-	public String getSetName()
-	{
-		return setName;
-	} //}}}
-
-	//{{{ getName() method
-	public String getName()
-	{
-		return modeName + "::" + setName;
-	} //}}}
-
-	//{{{ getProperties() method
-	public Hashtable getProperties()
-	{
-		return props;
-	} //}}}
-
-	//{{{ setProperties() method
-	public void setProperties(Hashtable props)
-	{
-		this.props = props;
-		_noWordSep = null;
-	} //}}}
-
-	//{{{ resolveImports() method
-	/**
-	 * Resolves all rulesets added with {@link #addRuleSet(ParserRuleSet)}.
-	 * @since jEdit 4.2pre3
-	 */
-	public void resolveImports()
-	{
-		Iterator iter = imports.iterator();
-		while(iter.hasNext())
-		{
-			ParserRuleSet ruleset = (ParserRuleSet)iter.next();
-			for(int i = 0; i < ruleset.ruleMapFirst.length; i++)
-			{
-				ParserRule rule = ruleset.ruleMapFirst[i];
-				while(rule != null)
-				{
-					addRule(rule);
-					rule = rule.next;
-				}
-			}
-
-			if(ruleset.keywords != null)
-			{
-				if(keywords == null)
-					keywords = new KeywordMap(ignoreCase);
-				keywords.add(ruleset.keywords);
-			}
-		}
-		imports.clear();
-	} //}}}
-
-	//{{{ addRuleSet() method
-	/**
-	 * Adds all rules contained in the given ruleset.
-	 * @param ruleset The ruleset
-	 * @since jEdit 4.2pre3
-	 */
-	public void addRuleSet(ParserRuleSet ruleset)
-	{
-		imports.add(ruleset);
-	} //}}}
-
-	//{{{ addRule() method
 	public void addRule(ParserRule r)
 	{
-		ruleCount++;
-
-		int key = Character.toUpperCase(r.hashChar)
+		int key = Character.toUpperCase(r.searchChars[0])
 			% RULE_BUCKET_COUNT;
 		ParserRule last = ruleMapLast[key];
 		if(last == null)
@@ -144,192 +48,148 @@ public class ParserRuleSet
 			last.next = r;
 			ruleMapLast[key] = r;
 		}
-	} //}}}
+	}
 
-	//{{{ getRules() method
+	public void dump()
+	{
+		for(int i = 0; i < RULE_BUCKET_COUNT; i++)
+		{
+			ParserRule first = ruleMapFirst[i];
+			if(first == null)
+				System.err.println(0);
+			else
+			{
+				int j = 0;
+				while(first != null)
+				{
+					j++;
+					first = first.next;
+				}
+				System.err.println(j);
+			}
+		}
+	}
+
 	public ParserRule getRules(char ch)
 	{
 		int key = Character.toUpperCase(ch) % RULE_BUCKET_COUNT;
 		return ruleMapFirst[key];
-	} //}}}
+	}
 
-	//{{{ getRuleCount() method
-	public int getRuleCount()
-	{
-		return ruleCount;
-	} //}}}
-
-	//{{{ getTerminateChar() method
-	/**
-	 * Returns the number of chars that can be read before the rule parsing stops.
-	 *
-	 * @return a number of chars or -1 (default value) if there is no limit
-	 */
 	public int getTerminateChar()
 	{
 		return terminateChar;
-	} //}}}
+	}
 
-	//{{{ setTerminateChar() method
 	public void setTerminateChar(int atChar)
 	{
 		terminateChar = (atChar >= 0) ? atChar : -1;
-	} //}}}
+	}
 
-	//{{{ getIgnoreCase() method
 	public boolean getIgnoreCase()
 	{
 		return ignoreCase;
-	} //}}}
+	}
 
-	//{{{ setIgnoreCase() method
 	public void setIgnoreCase(boolean b)
 	{
 		ignoreCase = b;
-	} //}}}
+	}
 
-	//{{{ getKeywords() method
 	public KeywordMap getKeywords()
 	{
 		return keywords;
-	} //}}}
+	}
 
-	//{{{ setKeywords() method
 	public void setKeywords(KeywordMap km)
 	{
 		keywords = km;
-		_noWordSep = null;
-	} //}}}
+	}
 
-	//{{{ getHighlightDigits() method
 	public boolean getHighlightDigits()
 	{
 		return highlightDigits;
-	} //}}}
+	}
 
-	//{{{ setHighlightDigits() method
 	public void setHighlightDigits(boolean highlightDigits)
 	{
 		this.highlightDigits = highlightDigits;
-	} //}}}
+	}
 
-	//{{{ getDigitRegexp() method
-	public Pattern getDigitRegexp()
-	{
-		return digitRE;
-	} //}}}
-
-	//{{{ setDigitRegexp() method
-	public void setDigitRegexp(Pattern digitRE)
-	{
-		this.digitRE = digitRE;
-	} //}}}
-
-	//{{{ getEscapeRule() method
 	public ParserRule getEscapeRule()
 	{
 		return escapeRule;
-	} //}}}
+	}
 
-	//{{{ setEscapeRule() method
-	public void setEscapeRule(ParserRule escapeRule)
+	public Segment getEscapePattern()
 	{
-		addRule(escapeRule);
-		this.escapeRule = escapeRule;
-	} //}}}
+		if (escapePattern == null && escapeRule != null)
+		{
+			escapePattern = new Segment(escapeRule.searchChars, 0,
+				escapeRule.sequenceLengths[0]);
+		}
+		return escapePattern;
+	}
 
-	//{{{ getDefault() method
+	public void setEscape(String esc)
+	{
+		if (esc == null)
+		{
+			escapeRule = null;
+		}
+		else
+		{
+			escapeRule = ParserRuleFactory.createEscapeRule(esc);
+		}
+		escapePattern = null;
+	}
+
 	public byte getDefault()
 	{
 		return defaultToken;
-	} //}}}
+	}
 
-	//{{{ setDefault() method
 	public void setDefault(byte def)
 	{
 		defaultToken = def;
-	} //}}}
-
-	//{{{ getNoWordSep() method
-	public String getNoWordSep()
-	{
-		if(_noWordSep == null)
-		{
-			_noWordSep = noWordSep;
-			if(noWordSep == null)
-				noWordSep = "";
-			if(keywords != null)
-				noWordSep += keywords.getNonAlphaNumericChars();
-		}
-		return noWordSep;
-	} //}}}
-
-	//{{{ setNoWordSep() method
-	public void setNoWordSep(String noWordSep)
-	{
-		this.noWordSep = noWordSep;
-		_noWordSep = null;
-	} //}}}
-
-	//{{{ isBuiltIn() method
-	/**
-	 * Returns if this is a built-in ruleset.
-	 * @since jEdit 4.2pre1
-	 */
-	public boolean isBuiltIn()
-	{
-		return builtIn;
-	} //}}}
-
-	//{{{ toString() method
-	public String toString()
-	{
-		return getClass().getName() + '[' + modeName + "::" + setName + ']';
-	} //}}}
-
-	//{{{ Private members
-	private static ParserRuleSet[] standard;
-
-	static
-	{
-		standard = new ParserRuleSet[Token.ID_COUNT];
-		for(byte i = 0; i < Token.ID_COUNT; i++)
-		{
-			standard[i] = new ParserRuleSet(null,null);
-			standard[i].setDefault(i);
-			standard[i].builtIn = true;
-		}
 	}
 
-	private static final int RULE_BUCKET_COUNT = 128;
-
-	private String modeName, setName;
-	private Hashtable props;
-
+	private static final int RULE_BUCKET_COUNT = 32;
 	private KeywordMap keywords;
-
-	private int ruleCount;
 
 	private ParserRule[] ruleMapFirst;
 	private ParserRule[] ruleMapLast;
 
-	private LinkedList imports;
-
-	/**
-	 * The number of chars that can be read before the parsing stops.
-	 * &lt;TERMINATE AT_CHAR="1" /&gt;
-	 */
+	private ParserRule escapeRule;
+	private Segment escapePattern;
 	private int terminateChar = -1;
 	private boolean ignoreCase = true;
-	private byte defaultToken;
-	private ParserRule escapeRule;
-
 	private boolean highlightDigits;
-	private Pattern digitRE;
-
-	private String _noWordSep;
-	private String noWordSep;
-
-	private boolean builtIn;
-	//}}}
+	private byte defaultToken;
 }
+
+/*
+ * ChangeLog:
+ * $Log$
+ * Revision 1.1  2001/09/02 05:38:02  spestov
+ * Initial revision
+ *
+ * Revision 1.7  2000/04/09 10:41:26  sp
+ * NO_WORD_BREAK SPANs fixed, action tokens removed
+ *
+ * Revision 1.6  2000/04/08 09:34:58  sp
+ * Documentation updates, minor syntax changes
+ *
+ * Revision 1.5  2000/04/08 06:57:14  sp
+ * Parser rules are now hashed; this dramatically speeds up tokenization
+ *
+ * Revision 1.4  2000/04/08 06:10:51  sp
+ * Digit highlighting, search bar bug fix
+ *
+ * Revision 1.3  2000/04/07 06:57:26  sp
+ * Buffer options dialog box updates, API docs updated a bit in syntax package
+ *
+ * Revision 1.2  2000/04/01 08:40:55  sp
+ * Streamlined syntax highlighting, Perl mode rewritten in XML
+ *
+ */

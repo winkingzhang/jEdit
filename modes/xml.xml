@@ -8,6 +8,10 @@
 		<PROPERTY NAME="commentEnd" VALUE="--&gt;" />
 	</PROPS>
 	<RULES>
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<!-- SGML comment -->
 		<SPAN TYPE="COMMENT1">
 			<BEGIN>&lt;!--</BEGIN>
@@ -50,28 +54,37 @@
 			<END>;</END>
 		</SPAN>
 	</RULES>
-	<RULES SET="TAGS" DEFAULT="MARKUP" NO_WORD_SEP="-_">
+	<RULES SET="TAGS" DEFAULT="MARKUP">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<!-- SGML comment -->
 		<SPAN TYPE="COMMENT1">
 			<BEGIN>&lt;!--</BEGIN>
 			<END>--&gt;</END>
 		</SPAN>
 
-		<SPAN TYPE="LITERAL1" NO_LINE_BREAK="FALSE">
+		<SPAN TYPE="LITERAL1">
 			<BEGIN>"</BEGIN>
 			<END>"</END>
 		</SPAN>
 
-		<SPAN TYPE="LITERAL1" NO_LINE_BREAK="FALSE">
+		<SPAN TYPE="LITERAL1">
 			<BEGIN>'</BEGIN>
 			<END>'</END>
 		</SPAN>
 
 		<SEQ TYPE="MARKUP">/</SEQ>
+		<SEQ TYPE="NULL">=</SEQ>
 		<MARK_PREVIOUS TYPE="LABEL" EXCLUDE_MATCH="TRUE">:</MARK_PREVIOUS>
 		<SEQ TYPE="OPERATOR">:</SEQ>
 	</RULES>
-	<RULES SET="DTD-TAGS" DEFAULT="KEYWORD2" IGNORE_CASE="FALSE">
+	<RULES SET="DTD-TAGS" DEFAULT="KEYWORD2">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<!-- SGML comment -->
 		<SPAN TYPE="COMMENT1">
 			<BEGIN>&lt;!--</BEGIN>
@@ -90,12 +103,12 @@
 			<END>;</END>
 		</SPAN>
 
-		<SPAN TYPE="LITERAL1" NO_LINE_BREAK="FALSE">
+		<SPAN TYPE="LITERAL1">
 			<BEGIN>"</BEGIN>
 			<END>"</END>
 		</SPAN>
 
-		<SPAN TYPE="LITERAL1" NO_LINE_BREAK="FALSE">
+		<SPAN TYPE="LITERAL1">
 			<BEGIN>'</BEGIN>
 			<END>'</END>
 		</SPAN>
@@ -106,6 +119,7 @@
 			<END>]</END>
 		</SPAN>
 
+		<SEQ TYPE="NULL">=</SEQ>
 		<SEQ TYPE="OPERATOR">(</SEQ>
 		<SEQ TYPE="OPERATOR">)</SEQ>
 		<SEQ TYPE="OPERATOR">|</SEQ>
@@ -126,6 +140,10 @@
 		</KEYWORDS>
 	</RULES>
 	<RULES SET="ENTITY-TAGS" DEFAULT="KEYWORD2">
+		<!-- whitespace: (space and tab) -->
+		<WHITESPACE> </WHITESPACE>
+		<WHITESPACE>	</WHITESPACE>
+
 		<!-- SGML comment -->
 		<SPAN TYPE="COMMENT1">
 			<BEGIN>&lt;!--</BEGIN>
@@ -138,12 +156,12 @@
 			<END>--</END>
 		</SPAN>
 
-		<SPAN TYPE="LITERAL1" NO_LINE_BREAK="FALSE">
+		<SPAN TYPE="LITERAL1">
 			<BEGIN>"</BEGIN>
 			<END>"</END>
 		</SPAN>
 
-		<SPAN TYPE="LITERAL1" NO_LINE_BREAK="FALSE">
+		<SPAN TYPE="LITERAL1">
 			<BEGIN>'</BEGIN>
 			<END>'</END>
 		</SPAN>

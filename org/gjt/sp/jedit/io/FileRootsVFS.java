@@ -1,11 +1,6 @@
 /*
  * FileRootsVFS.java - Local root filesystems VFS
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 2000, 2005 Slava Pestov
- * Portions copyright (C) 2002 Kris Kopicki
- * Portions copyright (C) 2002 Carmine Lucarelli
+ * Copyright (C) 2000, 2001 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -24,15 +19,11 @@
 
 package org.gjt.sp.jedit.io;
 
-//{{{ Imports
 import javax.swing.filechooser.FileSystemView;
 import java.awt.Component;
+import java.lang.reflect.*;
 import java.io.File;
-import java.util.LinkedList;
-import org.gjt.sp.jedit.MiscUtilities;
-import org.gjt.sp.jedit.OperatingSystem;
 import org.gjt.sp.util.Log;
-//}}}
 
 /**
  * A VFS that lists local root filesystems.
@@ -43,132 +34,76 @@ public class FileRootsVFS extends VFS
 {
 	public static final String PROTOCOL = "roots";
 
-	//{{{ FileRootsVFS constructor
 	public FileRootsVFS()
 	{
-		super("roots",LOW_LATENCY_CAP,new String[] {
-			EA_TYPE });
-	} //}}}
+		super("roots");
 
-	//{{{ getParentOfPath() method
+		// try using Java 2 method first
+		try
+		{
+			method = File.class.getMethod("listRoots",new Class[0]);
+			Log.log(Log.DEBUG,this,"File.listRoots() detected");
+		}
+		catch(Exception e)
+		{
+			fsView = FileSystemView.getFileSystemView();
+			Log.log(Log.DEBUG,this,"File.listRoots() not detected");
+		}
+	}
+
+	public int getCapabilities()
+	{
+		// BROWSE_CAP not set because we don't want the VFS browser
+		// to create the default 'favorites' item in the 'More' menu
+		return 0 /* BROWSE_CAP | */;
+	}
+
 	public String getParentOfPath(String path)
 	{
 		return PROTOCOL + ":";
-	} //}}}
+	}
 
-	//{{{ _listFiles() method
-	public VFSFile[] _listFiles(Object session, String url,
+	public VFS.DirectoryEntry[] _listDirectory(Object session, String url,
 		Component comp)
 	{
-		File[] roots = listRoots();
+		File[] roots;
+
+		if(method == null)
+			roots = fsView.getRoots();
+		else
+		{
+			try
+			{
+				roots = (File[])method.invoke(null,new Object[0]);
+			}
+			catch(Exception e)
+			{
+				roots = null;
+				Log.log(Log.ERROR,this,e);
+			}
+		}
 
 		if(roots == null)
 			return null;
 
-		VFSFile[] rootDE = new VFSFile[roots.length];
+		VFS.DirectoryEntry[] rootDE = new VFS.DirectoryEntry[roots.length];
 		for(int i = 0; i < roots.length; i++)
-			rootDE[i] = new Root(roots[i]);
+		{
+			String name = roots[i].getPath();
+			rootDE[i] = _getDirectoryEntry(session,name,comp);
+		}
 
 		return rootDE;
-	} //}}}
+	}
 
-	//{{{ _getFile() method
-	public VFSFile _getFile(Object session, String path,
+	public DirectoryEntry _getDirectoryEntry(Object session, String path,
 		Component comp)
 	{
-		return new Root(new File(path));
-	} //}}}
+		return new VFS.DirectoryEntry(path,path,path,VFS.DirectoryEntry
+			.FILESYSTEM,0L,false);
+	}
 
-	//{{{ Private members
-	private static FileSystemView fsView = FileSystemView.getFileSystemView();
-
-	//{{{ listRoots() method
-	private static File[] listRoots()
-	{
-		if (OperatingSystem.isMacOS())
-		{
-			// Nasty hardcoded values
-			File[] volumes = new File("/Volumes").listFiles();
-			LinkedList roots = new LinkedList();
-
-			roots.add(new File("/"));
-
-			for (int i=0; i<volumes.length; i++)
-			{
-				// Make sure people don't do stupid things like putting files in /Volumes
-				if (volumes[i].isDirectory())
-					roots.add(volumes[i]);
-			}
-
-			return (File[])roots.toArray(new File[0]);
-		}
-		else
-		{
-			File[] roots = File.listRoots();
-			File[] desktop = fsView.getRoots();
-
-			if(desktop == null)
-				return roots;
-
-			File[] rootsPlus = new File[roots.length + desktop.length];
-			System.arraycopy(desktop, 0, rootsPlus, 0, desktop.length);
-			System.arraycopy(roots, 0, rootsPlus, 1, roots.length);
-			return rootsPlus;
-		}
-	} //}}}
-
-	//}}}
-
-	//{{{ Root class
-	static class Root extends VFSFile
-	{
-		Root(File file)
-		{
-			// REMIND: calling isDirectory() on a floppy drive
-			// displays stupid I/O error dialog box on Windows
-
-			String path = file.getPath();
-			setPath(path);
-			setDeletePath(path);
-			setSymlinkPath(path);
-
-			if(fsView.isFloppyDrive(file))
-			{
-				setType(VFSFile.FILESYSTEM);
-				setName(path);
-			}
-			else if(fsView.isDrive(file))
-			{
-				setType(VFSFile.FILESYSTEM);
-				setName(path + " "
-					+ fsView.getSystemDisplayName(file));
-			}
-			else if(file.isDirectory())
-			{
-				if(fsView.isFileSystemRoot(file))
-					setType(VFSFile.DIRECTORY);
-				else
-					setType(VFSFile.FILESYSTEM);
-
-				if(OperatingSystem.isMacOS())
-					setName(MiscUtilities.getFileName(path));
-				else
-					setName(path);
-			}
-			else
-				setType(VFSFile.FILE);
-		}
-
-		public String getExtendedAttribute(String name)
-		{
-			if(name.equals(EA_TYPE))
-				return super.getExtendedAttribute(name);
-			else
-			{
-				// don't want it to show "0 bytes" for size,
-				// etc.
-				return null;
-			}
-		}
-	} //}}}
+	// private members
+	private FileSystemView fsView;
+	private Method method;
 }

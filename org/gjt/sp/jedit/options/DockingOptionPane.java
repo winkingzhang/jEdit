@@ -1,9 +1,6 @@
 /*
  * DockingOptionPane.java - Dockable window options panel
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 2000, 2003 Slava Pestov
+ * Copyright (C) 2000 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,49 +19,82 @@
 
 package org.gjt.sp.jedit.options;
 
-//{{{ Imports
 import javax.swing.table.*;
 import javax.swing.*;
 import java.awt.*;
 import java.util.Vector;
-import java.util.Collections;
-import java.util.Comparator;
-
 import org.gjt.sp.jedit.gui.*;
 import org.gjt.sp.jedit.*;
-import org.gjt.sp.util.StandardUtilities;
-//}}}
 
-//{{{ DockingOptionPane class
 public class DockingOptionPane extends AbstractOptionPane
 {
-	//{{{ DockingOptionPane constructor
 	public DockingOptionPane()
 	{
 		super("docking");
-	} //}}}
+	}
 
-	//{{{ _init() method
 	public void _init()
 	{
-		setLayout(new BorderLayout());
-		add(BorderLayout.CENTER,createWindowTableScroller());
-	} //}}}
+		Box box = new Box(BoxLayout.X_AXIS);
+		ButtonGroup grp = new ButtonGroup();
 
-	//{{{ _save() method
+		layout1 = new JToggleButton(GUIUtilities.loadIcon("dock_layout1.gif"));
+		grp.add(layout1);
+		box.add(layout1);
+
+		box.add(Box.createHorizontalStrut(6));
+
+		layout2 = new JToggleButton(GUIUtilities.loadIcon("dock_layout2.gif"));
+		grp.add(layout2);
+		box.add(layout2);
+
+		if(jEdit.getBooleanProperty("view.docking.alternateLayout"))
+			layout2.setSelected(true);
+		else
+			layout1.setSelected(true);
+
+		addComponent(jEdit.getProperty("options.docking.layout"),box);
+
+		// reuse properties defined by the general option pane
+		String[] positions = {
+			jEdit.getProperty("options.docking.top"),
+			jEdit.getProperty("options.docking.bottom"),
+		};
+
+		tabsPos = new JComboBox(positions);
+		tabsPos.setSelectedIndex(Integer.parseInt(jEdit.getProperty(
+			"view.docking.tabsPos")));
+		addComponent(jEdit.getProperty("options.docking.tabsPos"),tabsPos);
+
+		addComponent(Box.createVerticalStrut(6));
+
+		GridBagConstraints cons = new GridBagConstraints();
+		cons.gridy = 3;
+		cons.gridwidth = cons.gridheight = GridBagConstraints.REMAINDER;
+		cons.fill = GridBagConstraints.BOTH;
+		cons.weightx = cons.weighty = 1.0f;
+
+		JScrollPane windowScroller = createWindowTableScroller();
+		gridBag.setConstraints(windowScroller,cons);
+		add(windowScroller);
+	}
+
 	public void _save()
 	{
+		jEdit.setBooleanProperty("view.docking.alternateLayout",
+			layout2.isSelected());
+		jEdit.setProperty("view.docking.tabsPos",String.valueOf(
+			tabsPos.getSelectedIndex()));
 		windowModel.save();
-	} //}}}
+	}
 
-	//{{{ Private members
-
-	//{{{ Instance variables
+	// private members
+	private JToggleButton layout1;
+	private JToggleButton layout2;
+	private JComboBox tabsPos;
 	private JTable windowTable;
 	private WindowTableModel windowModel;
-	//}}}
 
-	//{{{ createWindowTableScroller() method
 	private JScrollPane createWindowTableScroller()
 	{
 		windowModel = createWindowModel();
@@ -75,28 +105,27 @@ public class DockingOptionPane extends AbstractOptionPane
 		windowTable.setCellSelectionEnabled(false);
 
 		DockPositionCellRenderer comboBox = new DockPositionCellRenderer();
+		comboBox.setRequestFocusEnabled(false);
 		windowTable.setRowHeight(comboBox.getPreferredSize().height);
 		TableColumn column = windowTable.getColumnModel().getColumn(1);
 		column.setCellRenderer(comboBox);
-		column.setCellEditor(new DefaultCellEditor(new DockPositionCellRenderer()));
+		comboBox = new DockPositionCellRenderer();
+		comboBox.setRequestFocusEnabled(false);
+		column.setCellEditor(new DefaultCellEditor(comboBox));
 
 		Dimension d = windowTable.getPreferredSize();
-		d.height = Math.min(d.height,50);
+		d.height = Math.min(d.height,200);
 		JScrollPane scroller = new JScrollPane(windowTable);
 		scroller.setPreferredSize(d);
 		return scroller;
-	} //}}}
+	}
 
-	//{{{ createWindowModel() method
-	private static WindowTableModel createWindowModel()
+	private WindowTableModel createWindowModel()
 	{
 		return new WindowTableModel();
-	} //}}}
+	}
 
-	//}}}
-
-	//{{{ DockPositionCellRenderer class
-	static class DockPositionCellRenderer extends JComboBox
+	class DockPositionCellRenderer extends JComboBox
 		implements TableCellRenderer
 	{
 		DockPositionCellRenderer()
@@ -108,7 +137,6 @@ public class DockingOptionPane extends AbstractOptionPane
 				DockableWindowManager.BOTTOM,
 				DockableWindowManager.RIGHT
 			});
-			DockPositionCellRenderer.this.setRequestFocusEnabled(false);
 		}
 
 		public Component getTableCellRendererComponent(JTable table,
@@ -118,49 +146,41 @@ public class DockingOptionPane extends AbstractOptionPane
 			setSelectedItem(value);
 			return this;
 		}
-	} //}}}
-} //}}}
+	}
+}
 
-//{{{ WindowTableModel class
 class WindowTableModel extends AbstractTableModel
 {
 	private Vector windows;
 
-	//{{{ WindowTableModel constructor
 	WindowTableModel()
 	{
-		windows = new Vector();
-
-		String[] dockables = DockableWindowManager
-			.getRegisteredDockableWindows();
-		for(int i = 0; i < dockables.length; i++)
+		Object[] list = EditBus.getNamedList(DockableWindow.DOCKABLE_WINDOW_LIST);
+		windows = new Vector(list.length);
+		for(int i = 0; i < list.length; i++)
 		{
-			windows.addElement(new Entry(dockables[i]));
+			windows.addElement(new Entry((String)list[i]));
 		}
 
 		sort();
-	} //}}}
+	}
 
-	//{{{ sort() method
 	public void sort()
 	{
-		Collections.sort(windows,new WindowCompare());
+		MiscUtilities.quicksort(windows,new WindowCompare());
 		fireTableDataChanged();
-	} //}}}
+	}
 
-	//{{{ getColumnCount() method
 	public int getColumnCount()
 	{
-		return 2;
-	} //}}}
+		return 3;
+	}
 
-	//{{{ getRowCount() method
 	public int getRowCount()
 	{
 		return windows.size();
-	} //}}}
+	}
 
-	//{{{ getColumnClass() method
 	public Class getColumnClass(int col)
 	{
 		switch(col)
@@ -168,12 +188,13 @@ class WindowTableModel extends AbstractTableModel
 		case 0:
 		case 1:
 			return String.class;
+		case 2:
+			return Boolean.class;
 		default:
 			throw new InternalError();
 		}
-	} //}}}
+	}
 
-	//{{{ getValueAt() method
 	public Object getValueAt(int row, int col)
 	{
 		Entry window = (Entry)windows.elementAt(row);
@@ -183,18 +204,18 @@ class WindowTableModel extends AbstractTableModel
 			return window.title;
 		case 1:
 			return window.dockPosition;
+		case 2:
+			return new Boolean(window.autoOpen);
 		default:
 			throw new InternalError();
 		}
-	} //}}}
+	}
 
-	//{{{ isCellEditable() method
 	public boolean isCellEditable(int row, int col)
 	{
-		return col != 0;
-	} //}}}
+		return (col != 0);
+	}
 
-	//{{{ setValueAt() method
 	public void setValueAt(Object value, int row, int col)
 	{
 		if(col == 0)
@@ -206,14 +227,16 @@ class WindowTableModel extends AbstractTableModel
 		case 1:
 			window.dockPosition = (String)value;
 			break;
+		case 2:
+			window.autoOpen = ((Boolean)value).booleanValue();
+			break;
 		default:
 			throw new InternalError();
 		}
 
 		fireTableRowsUpdated(row,row);
-	} //}}}
+	}
 
-	//{{{ getColumnName() method
 	public String getColumnName(int index)
 	{
 		switch(index)
@@ -222,26 +245,27 @@ class WindowTableModel extends AbstractTableModel
 			return jEdit.getProperty("options.docking.title");
 		case 1:
 			return jEdit.getProperty("options.docking.dockPosition");
+		case 2:
+			return jEdit.getProperty("options.docking.autoOpen");
 		default:
 			throw new InternalError();
 		}
-	} //}}}
+	}
 
-	//{{{ save() method
 	public void save()
 	{
 		for(int i = 0; i < windows.size(); i++)
 		{
 			((Entry)windows.elementAt(i)).save();
 		}
-	} //}}}
+	}
 
-	//{{{ Entry class
-	static class Entry
+	class Entry
 	{
 		String name;
 		String title;
 		String dockPosition;
+		boolean autoOpen;
 
 		Entry(String name)
 		{
@@ -253,24 +277,44 @@ class WindowTableModel extends AbstractTableModel
 			dockPosition = jEdit.getProperty(name + ".dock-position");
 			if(dockPosition == null)
 				dockPosition = DockableWindowManager.FLOATING;
+			autoOpen = jEdit.getBooleanProperty(name + ".auto-open");
 		}
 
 		void save()
 		{
 			jEdit.setProperty(name + ".dock-position",dockPosition);
+			jEdit.setBooleanProperty(name + ".auto-open",autoOpen);
 		}
-	} //}}}
+	}
 
-	//{{{ WindowCompare class
-	static class WindowCompare implements Comparator
+	class WindowCompare implements MiscUtilities.Compare
 	{
 		public int compare(Object obj1, Object obj2)
 		{
 			Entry e1 = (Entry)obj1;
 			Entry e2 = (Entry)obj2;
 
-			return StandardUtilities.compareStrings(
-				e1.title,e2.title,true);
+			return e1.title.compareTo(e2.title);
 		}
-	} //}}}
-} //}}}
+	}
+}
+
+/*
+ * Change Log:
+ * $Log$
+ * Revision 1.1  2001/09/02 05:37:50  spestov
+ * Initial revision
+ *
+ * Revision 1.4  2001/07/24 08:15:44  sp
+ * plugin guide updated
+ *
+ * Revision 1.3  2000/10/30 07:14:04  sp
+ * 2.7pre1 branched, GUI improvements
+ *
+ * Revision 1.2  2000/09/23 03:01:11  sp
+ * pre7 yayayay
+ *
+ * Revision 1.1  2000/08/17 08:04:10  sp
+ * Marker loading bug fixed, docking option pane
+ *
+ */

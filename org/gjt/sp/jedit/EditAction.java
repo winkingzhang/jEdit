@@ -1,9 +1,6 @@
 /*
  * EditAction.java - jEdit action listener
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 1998, 2003 Slava Pestov
+ * Copyright (C) 1998, 1999, 2000, 2001 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,76 +19,66 @@
 
 package org.gjt.sp.jedit;
 
-//{{{ Imports
+import javax.swing.JPopupMenu;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.Component;
+import java.util.EventObject;
 import org.gjt.sp.util.Log;
-//}}}
 
 /**
- * An action that can be bound to a menu item, tool bar button or keystroke.
- *
- * @see jEdit#getAction(String)
- * @see jEdit#getActionNames()
- * @see ActionSet
+ * Instead of subclassing EditAction directly, you should now write an
+ * actions.xml file.
  *
  * @author Slava Pestov
  * @version $Id$
  */
 public abstract class EditAction
+// no longer implements ActionListener
 {
-	//{{{ EditAction constructor
 	/**
-	 * Creates a new edit action with the specified name.
-	 * @param name The action name
+	 * @deprecated Create an actions.xml file instead of writing
+	 * EditAction implementations!
 	 */
 	public EditAction(String name)
 	{
-		this.name = name;
-	} //}}}
+		// The only people who use this constructor are
+		// plugins written for the old action API, so
+		// we can safely assume that 'plugin' should be
+		// true.
+		this(name,true);
+	}
 
-	//{{{ getName() method
+	/**
+	 * Creates a new <code>EditAction</code>.
+	 * @param name The name of the action
+	 * @param plugin True if this is a plugin action
+	 * @since jEdit 3.1pre1
+	 */
+	/* package-private */ EditAction(String name, boolean plugin)
+	{
+		this.name = name;
+		this.plugin = plugin;
+	}
+
 	/**
 	 * Returns the internal name of this action.
 	 */
-	public String getName()
+	public final String getName()
 	{
 		return name;
-	} //}}}
-	
-	/**
-	 * Changes the name of an action
-	 * @param newName
-	 * @since jEdit 4.3pre4
-	 */
-	public void setName(String newName) {
-		name = newName;
 	}
 
-	//{{{ getLabel() method
 	/**
-	 * Returns the action's label. This returns the
-	 * value of the property named by {@link #getName()} suffixed
-	 * with <code>.label</code>.
+	 * Returns true if this action was loaded from a plugin, false
+	 * if it was loaded from the core.
+	 * @since jEdit 3.1pre1
 	 */
-	public final String getLabel()
+	public boolean isPluginAction()
 	{
-		return jEdit.getProperty(name + ".label");
-	} //}}}
+		return plugin;
+	}
 
-	//{{{ getMouseOverText() method
-	/**
-	 * Returns the action's mouse over message. This returns the
-	 * value of the property named by {@link #getName()} suffixed
-	 * with <code>.mouse-over</code>.
-	 */
-	public final String getMouseOverText()
-	{
-		return jEdit.getProperty(name + ".mouse-over");
-	} //}}}
-
-	//{{{ invoke() method
 	/**
 	 * Invokes the action.
 	 * @param view The view
@@ -99,44 +86,94 @@ public abstract class EditAction
 	 */
 	public void invoke(View view)
 	{
-	} //}}}
+		// default implementation
+		ActionEvent evt = new ActionEvent(view,
+			ActionEvent.ACTION_PERFORMED,
+			null);
 
-	//{{{ getView() method
+		actionPerformed(evt);
+	}
+
 	/**
-	 * @deprecated Call <code>GUIUtilities.getView()</code> instead.
+	 * @deprecated Create an actions.xml file instead of writing
+	 * EditAction implementations!
+	 */
+	public void actionPerformed(ActionEvent evt) {}
+
+	/**
+	 * @deprecated No longer necessary.
+	 */
+	public static View getView(EventObject evt)
+	{
+		if(evt != null)
+		{
+			Object o = evt.getSource();
+			if(o instanceof Component)
+				return getView((Component)o);
+		}
+		// this shouldn't happen
+		return null;
+	}
+
+	/**
+	 * @deprecated No longer necessary.
+	 */
+	public static Buffer getBuffer(EventObject evt)
+	{
+		View view = getView(evt);
+		if(view != null)
+			return view.getBuffer();
+		return null;
+	}
+
+	/**
+	 * Finds the view parent of the specified component.
+	 * @since jEdit 2.2pre4
 	 */
 	public static View getView(Component comp)
 	{
-		// moved to GUIUtilities as it makes no sense being here.
-		return GUIUtilities.getView(comp);
-	} //}}}
+		for(;;)
+		{
+			if(comp instanceof View)
+				return (View)comp;
+			else if(comp instanceof JPopupMenu)
+				comp = ((JPopupMenu)comp).getInvoker();
+			else if(comp != null)
+				comp = comp.getParent();
+			else
+				break;
+		}
+		return null;
+	}
 
-	//{{{ isToggle() method
 	/**
 	 * Returns if this edit action should be displayed as a check box
-	 * in menus. This returns the
-	 * value of the property named by {@link #getName()} suffixed
-	 * with <code>.toggle</code>.
-	 *
+	 * in menus.
 	 * @since jEdit 2.2pre4
 	 */
-	public final boolean isToggle()
+	public boolean isToggle()
 	{
-		return jEdit.getBooleanProperty(name + ".toggle");
-	} //}}}
+		return false;
+	}
 
-	//{{{ isSelected() method
 	/**
 	 * If this edit action is a toggle, returns if it is selected or not.
-	 * @param comp The component
-	 * @since jEdit 4.2pre1
+	 * @param view The view
+	 * @since jEdit 3.2pre5
+	 */
+	public boolean isSelected(View view)
+	{
+		return isSelected((Component)view);
+	}
+
+	/**
+	 * @deprecated Override the form that accepts a view instead
 	 */
 	public boolean isSelected(Component comp)
 	{
 		return false;
-	} //}}}
+	}
 
-	//{{{ noRepeat() method
 	/**
 	 * Returns if this edit action should not be repeated. Returns false
 	 * by default.
@@ -145,9 +182,8 @@ public abstract class EditAction
 	public boolean noRepeat()
 	{
 		return false;
-	} //}}}
+	}
 
-	//{{{ noRecord() method
 	/**
 	 * Returns if this edit action should not be recorded. Returns false
 	 * by default.
@@ -156,75 +192,55 @@ public abstract class EditAction
 	public boolean noRecord()
 	{
 		return false;
-	} //}}}
+	}
 
-	//{{{ noRememberLast() method
-	/**
-	 * Returns if this edit action should not be remembered as the most
-	 * recently invoked action.
-	 * @since jEdit 4.2pre1
-	 */
-	public boolean noRememberLast()
-	{
-		return false;
-	} //}}}
-
-	//{{{ getCode() method
 	/**
 	 * Returns the BeanShell code that will replay this action.
 	 * @since jEdit 2.7pre2
 	 */
-	public abstract String getCode();
-	//}}}
+	public String getCode()
+	{
+		return "view.getInputHandler().invokeAction("
+			+ "jEdit.getAction(\"" + name + "\"))";
+	}
 
-	//{{{ toString() method
 	public String toString()
 	{
 		return name;
-	} //}}}
+	}
 
-	//{{{ Private members
+	// private members
 	private String name;
-	//}}}
+	private boolean plugin;
 
-	//{{{ Wrapper class
 	/**
 	 * 'Wrap' EditActions in this class to turn them into AWT
 	 * ActionListeners, that can be attached to buttons, menu items, etc.
 	 */
 	public static class Wrapper implements ActionListener
 	{
-		/**
-		 * Creates a new action listener wrapper.
-		 * @since jEdit 4.2pre1
-		 */
-		public Wrapper(ActionContext context, String actionName)
+		public Wrapper(EditAction action)
 		{
-			this.context = context;
-			this.actionName = actionName;
+			this.action = action;
 		}
 
 		/**
 		 * Called when the user selects this action from a menu.
 		 * It passes the action through the
-		 * {@link org.gjt.sp.jedit.gui.InputHandler#invokeAction(EditAction)}
-		 * method, which performs any recording or repeating.
+		 * <code>InputHandler.executeAction()</code> method,
+		 * which performs any recording or repeating. It also
+		 * loads the action if necessary.
 		 *
 		 * @param evt The action event
 		 */
 		public void actionPerformed(ActionEvent evt)
 		{
-			EditAction action = context.getAction(actionName);
-			if(action == null)
-			{
-				Log.log(Log.WARNING,this,"Unknown action: "
-					+ actionName);
-			}
-			else
-				context.invokeAction(evt,action);
+			// Let input handler do recording, repeating, etc
+			EditAction.getView(evt).getInputHandler()
+				.invokeAction(action);
 		}
 
-		private ActionContext context;
-		private String actionName;
-	} //}}}
+		// private members
+		private EditAction action;
+	}
 }

@@ -1,8 +1,5 @@
 /*
  * PluginManagerProgress.java - Plugin download progress meter
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 2000, 2001 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
@@ -22,21 +19,17 @@
 
 package org.gjt.sp.jedit.pluginmgr;
 
-//{{{ Imports
 import javax.swing.border.*;
 import javax.swing.*;
 import java.awt.event.*;
 import java.awt.*;
 import org.gjt.sp.jedit.*;
-import org.gjt.sp.util.ProgressObserver;
-//}}}
 
-class PluginManagerProgress extends JDialog implements ProgressObserver
+public class PluginManagerProgress extends JDialog
 {
-	//{{{ PluginManagerProgress constructor
-	public PluginManagerProgress(PluginManager dialog, Roster roster)
+	public PluginManagerProgress(JDialog dialog, String caption, Roster roster)
 	{
-		super(dialog,jEdit.getProperty("plugin-manager.progress"),true);
+		super(JOptionPane.getFrameForComponent(dialog),caption,true);
 
 		this.roster = roster;
 
@@ -44,105 +37,109 @@ class PluginManagerProgress extends JDialog implements ProgressObserver
 		content.setBorder(new EmptyBorder(12,12,12,12));
 		setContentPane(content);
 
-		progress = new JProgressBar();
-		progress.setStringPainted(true);
-		progress.setString(jEdit.getProperty("plugin-manager.progress"));
+		globalProgress = new JProgressBar();
+		globalProgress.setStringPainted(true);
+		globalProgress.setString(caption);
 
-		int maximum = 0;
 		count = roster.getOperationCount();
-		for(int i = 0; i < count; i++)
-		{
-			maximum += roster.getOperation(i).getMaximum();
-		}
 
-		progress.setMaximum(maximum);
-		content.add(BorderLayout.NORTH,progress);
+		globalProgress.setMaximum(count);
+		content.add(BorderLayout.NORTH,globalProgress);
+
+		localProgress = new JProgressBar();
+		localProgress.setStringPainted(true);
+		content.add(BorderLayout.CENTER,localProgress);
 
 		stop = new JButton(jEdit.getProperty("plugin-manager.progress.stop"));
 		stop.addActionListener(new ActionHandler());
-		JPanel panel = new JPanel(new FlowLayout(
-			FlowLayout.CENTER,0,0));
+		JPanel panel = new JPanel();
+		panel.setLayout(new BoxLayout(panel,BoxLayout.X_AXIS));
+		panel.add(Box.createGlue());
 		panel.add(stop);
-		content.add(BorderLayout.CENTER,panel);
+		panel.add(Box.createGlue());
+		content.add(BorderLayout.SOUTH,panel);
 
 		addWindowListener(new WindowHandler());
 
 		pack();
+
+		Dimension screen = getToolkit().getScreenSize();
+		Dimension size = getSize();
+		size.width = Math.max(size.width,500);
+		setSize(size);
 		setLocationRelativeTo(dialog);
-		setVisible(true);
-	} //}}}
 
-	//{{{ setValue() method
+		show();
+	}
 
-	/**
-	 * @param value the new value
-	 * @deprecated Use {@link #setValue(long)}
-	 */
+	public void removing(String plugin)
+	{
+		String[] args = { plugin };
+		showMessage(jEdit.getProperty("plugin-manager.progress.removing",args));
+		stop.setEnabled(true);
+	}
+
+	public void downloading(String plugin)
+	{
+		String[] args = { plugin };
+		showMessage(jEdit.getProperty("plugin-manager.progress.downloading",args));
+		stop.setEnabled(true);
+	}
+
+	public void installing(String plugin)
+	{
+		String[] args = { plugin };
+		showMessage(jEdit.getProperty("plugin-manager.progress.installing",args));
+		stop.setEnabled(false);
+	}
+
+	public void setMaximum(final int total)
+	{
+		SwingUtilities.invokeLater(new Runnable()
+		{
+			public void run()
+			{
+				localProgress.setMaximum(total);
+			}
+		});
+	}
+
 	public void setValue(final int value)
 	{
 		SwingUtilities.invokeLater(new Runnable()
 		{
 			public void run()
 			{
-				progress.setValue(valueSoFar + value);
+				localProgress.setValue(value);
 			}
 		});
-	} //}}}
+	}
 
-	//{{{ setValue() method
-	/**
-	 * Update the progress value.
-	 *
-	 * @param value the new value
-	 * @since jEdit 4.3pre3
-	 */
-	public void setValue(final long value)
+	public void done(final boolean ok)
 	{
-		SwingUtilities.invokeLater(new Runnable()
-			{
-				public void run()
-				{
-					progress.setValue(valueSoFar + (int) value);
-				}
-			});
-	} //}}}
+		this.ok |= ok;
 
-	//{{{ setMaximum() method
-	/**
-	 * This method is unused with the plugin manager.
-	 *
-	 * @param value the new max value (it will be ignored)
-	 * @since jEdit 4.3pre3
-	 */
-	public void setMaximum(long value) 
-	{
-	} //}}}
-
-	//{{{ setStatus() method
-	/**
-	 * This method is unused with the plugin manager.
-	 *
-	 * @param status the new status (it will be ignored)
-	 * @since jEdit 4.3pre3
-	 */
-	 public void setStatus(String status) 
-	 {
-		 setTitle(status);
-		 progress.setString(status);
-	} //}}}
-
-	//{{{ done() method
-	public void done()
-	{
 		try
 		{
-			if(done == count)
+			if(!ok || done == count)
 			{
 				SwingUtilities.invokeAndWait(new Runnable()
 				{
 					public void run()
 					{
 						dispose();
+						if(ok)
+						{
+							GUIUtilities.message(PluginManagerProgress.this,
+								"plugin-manager.done",null);
+						}
+						else
+						{
+							// user will see an error in any case
+
+							//GUIUtilities.message(PluginManagerProgress.this,
+							//	"plugin-manager.failed",null);
+						}
 					}
 				});
 			}
@@ -152,10 +149,8 @@ class PluginManagerProgress extends JDialog implements ProgressObserver
 				{
 					public void run()
 					{
-						valueSoFar += roster.getOperation(done - 1)
-							.getMaximum();
-						progress.setValue(valueSoFar);
-						done++;
+						globalProgress.setValue(done++);
+						localProgress.setValue(0);
 					}
 				});
 			}
@@ -163,43 +158,61 @@ class PluginManagerProgress extends JDialog implements ProgressObserver
 		catch(Exception e)
 		{
 		}
-	} //}}}
+	}
 
-	//{{{ Private members
+	public boolean isOK()
+	{
+		return ok;
+	}
 
-	//{{{ Instance variables
+	// private members
 	private Thread thread;
 
-	private JProgressBar progress;
+	private JProgressBar globalProgress, localProgress;
 	private JButton stop;
 	private int count;
 	private int done = 1;
 
-	// progress value as of start of current task
-	private int valueSoFar;
+	private boolean ok;
 
 	private Roster roster;
-	//}}}
 
-	//{{{ ActionHandler class
+	private void showMessage(final String msg)
+	{
+		try
+		{
+			SwingUtilities.invokeAndWait(new Runnable()
+			{
+				public void run()
+				{
+					localProgress.setString(msg);
+				}
+			});
+		}
+		catch(Exception e)
+		{
+		}
+
+		Thread.yield();
+	}
+
 	class ActionHandler implements ActionListener
 	{
 		public void actionPerformed(ActionEvent evt)
 		{
 			if(evt.getSource() == stop)
 			{
-				thread.stop();
+				thread.interrupt();
 				dispose();
 			}
 		}
-	} //}}}
+	}
 
-	//{{{ WindowHandler class
 	class WindowHandler extends WindowAdapter
 	{
 		boolean done;
 
-		public void windowOpened(WindowEvent evt)
+		public void windowActivated(WindowEvent evt)
 		{
 			if(done)
 				return;
@@ -211,12 +224,11 @@ class PluginManagerProgress extends JDialog implements ProgressObserver
 
 		public void windowClosing(WindowEvent evt)
 		{
-			thread.stop();
+			thread.interrupt();
 			dispose();
 		}
-	} //}}}
+	}
 
-	//{{{ RosterThread class
 	class RosterThread extends Thread
 	{
 		RosterThread()
@@ -226,9 +238,7 @@ class PluginManagerProgress extends JDialog implements ProgressObserver
 
 		public void run()
 		{
-			roster.performOperationsInWorkThread(PluginManagerProgress.this);
+			roster.performOperations(PluginManagerProgress.this);
 		}
-	} //}}}
-
-	//}}}
+	}
 }

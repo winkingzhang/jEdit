@@ -29,9 +29,8 @@ public class WorkThread extends Thread
 	public WorkThread(WorkThreadPool pool, ThreadGroup group, String name)
 	{
 		super(group, name);
-		// so that jEdit doesn't exit with no views open automatically
-		//setDaemon(true);
-		setPriority(Thread.MIN_PRIORITY);
+		setDaemon(true);
+		setPriority(4);
 
 		this.pool = pool;
 	}
@@ -157,13 +156,13 @@ public class WorkThread extends Thread
 			else
 			{
 				requestRunning = true;
-				pool.fireStatusChanged(this);
+				pool.fireProgressChanged(this);
 				doRequest(request);
 				requestRunning = false;
+				pool.fireProgressChanged(this);
 			}
 		}
 
-		pool.fireStatusChanged(this);
 
 		synchronized(pool.waitForAllLock)
 		{
@@ -187,7 +186,7 @@ public class WorkThread extends Thread
 
 	private void doRequest(WorkThreadPool.Request request)
 	{
-		Log.log(Log.DEBUG,WorkThread.class,"Running in work thread: " + request);
+// 		Log.log(Log.DEBUG,WorkThread.class,"Running in work thread: " + request);
 
 		try
 		{
@@ -212,7 +211,7 @@ public class WorkThread extends Thread
 			status = null;
 			progressValue = progressMaximum = 0;
 			pool.requestDone();
-			pool.fireStatusChanged(this);
+			pool.fireProgressChanged(this);
 		}
 	}
 

@@ -1,9 +1,6 @@
 /*
- * PluginList.java - Plugin list downloaded from server
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
- * Copyright (C) 2001, 2003 Slava Pestov
+ * PluginList.java - Plugin list
+ * Copyright (C) 2001 Slava Pestov
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,99 +19,51 @@
 
 package org.gjt.sp.jedit.pluginmgr;
 
-//{{{ Imports
+import com.microstar.xml.*;
 import java.io.*;
 import java.net.URL;
 import java.util.Hashtable;
 import java.util.Vector;
-import java.util.zip.GZIPInputStream;
-import org.xml.sax.XMLReader;
-import org.xml.sax.InputSource;
-import org.xml.sax.helpers.XMLReaderFactory;
 import org.gjt.sp.util.Log;
-import org.gjt.sp.util.StandardUtilities;
 import org.gjt.sp.jedit.*;
-//}}}
 
 /**
  * Plugin list downloaded from server.
  * @since jEdit 3.2pre2
- * @version $Id$
  */
 class PluginList
 {
-	/**
-	 * Magic numbers used for auto-detecting GZIP files.
-	 */
-	public static final int GZIP_MAGIC_1 = 0x1f;
-	public static final int GZIP_MAGIC_2 = 0x8b;
-
 	Vector plugins;
 	Hashtable pluginHash;
 	Vector pluginSets;
 
-	/**
-	 * The mirror id.
-	 * @since jEdit 4.3pre3
-	 */
-	private final String id;
-
-	//{{{ PluginList constructor
 	PluginList() throws Exception
 	{
 		plugins = new Vector();
 		pluginHash = new Hashtable();
 		pluginSets = new Vector();
 
-		String path = jEdit.getProperty("plugin-manager.export-url");
-		id = jEdit.getProperty("plugin-manager.mirror.id");
-		if (!id.equals(MirrorList.Mirror.NONE))
-			path += "?mirror="+id;
+		String path = jEdit.getProperty("plugin-manager.url");
 		PluginListHandler handler = new PluginListHandler(this,path);
-		XMLReader parser = XMLReaderFactory.createXMLReader();
-		InputStream in = new BufferedInputStream(new URL(path).openStream());
-		try
-		{
-			if(in.markSupported())
-			{
-				in.mark(2);
-				int b1 = in.read();
-				int b2 = in.read();
-				in.reset();
+		XmlParser parser = new XmlParser();
+		parser.setHandler(handler);
 
-				if(b1 == GZIP_MAGIC_1 && b2 == GZIP_MAGIC_2)
-					in = new GZIPInputStream(in);
-			}
+		parser.parse(null,null,new BufferedReader(new InputStreamReader(
+			new URL(path).openStream(),"UTF8")));
+	}
 
-			InputSource isrc = new InputSource(new InputStreamReader(in,"UTF8"));
-			isrc.setSystemId("jedit.jar");
-			parser.setContentHandler(handler);
-			parser.setDTDHandler(handler);
-			parser.setEntityResolver(handler);
-			parser.setErrorHandler(handler);
-			parser.parse(isrc);
-		}
-		finally
-		{
-			in.close();
-		}
-	} //}}}
-
-	//{{{ addPlugin() method
 	void addPlugin(Plugin plugin)
 	{
 		plugin.checkIfInstalled();
 		plugins.addElement(plugin);
 		pluginHash.put(plugin.name,plugin);
-	} //}}}
+	}
 
-	//{{{ addPluginSet() method
 	void addPluginSet(PluginSet set)
 	{
 		pluginSets.addElement(set);
-	} //}}}
+	}
 
-	//{{{ finished() method
 	void finished()
 	{
 		// after the entire list is loaded, fill out plugin field
@@ -133,59 +82,58 @@ class PluginList
 				}
 			}
 		}
-	} //}}}
+	}
 
-	//{{{ dump() method
 	void dump()
 	{
 		for(int i = 0; i < plugins.size(); i++)
 		{
-			System.err.println(plugins.elementAt(i));
+			System.err.println((Plugin)plugins.elementAt(i));
 			System.err.println();
 		}
-	} //}}}
+	}
 
-	//{{{ getMirrorId() method
-	/**
-	 * Returns the mirror ID.
-	 *
-	 * @return the mirror ID
-	 * @since jEdit 4.3pre3
-	 */
-	String getMirrorId()
-	{
-		return id;
-	} //}}}
-
-	//{{{ PluginSet class
 	static class PluginSet
 	{
 		String name;
 		String description;
 		Vector plugins = new Vector();
 
+		void install(Roster roster, String installDirectory,
+			boolean downloadSource)
+		{
+			for(int i = 0; i < plugins.size(); i++)
+			{
+				Plugin plugin = (Plugin)plugins.elementAt(i);
+				if(plugin.canBeInstalled())
+				{
+					plugin.install(roster,installDirectory,
+						downloadSource);
+				}
+			}
+		}
+
 		public String toString()
 		{
 			return plugins.toString();
 		}
-	} //}}}
+	}
 
-	//{{{ Plugin class
-	public static class Plugin
+	static class Plugin
 	{
 		String jar;
 		String name;
 		String description;
 		String author;
 		Vector branches = new Vector();
-		//String installed;
-		//String installedVersion;
+		String installed;
+		String installedVersion;
 
 		void checkIfInstalled()
 		{
-			/* // check if the plugin is already installed.
+			// check if the plugin is already installed.
 			// this is a bit of hack
-			PluginJAR[] jars = jEdit.getPluginJARs();
+			EditPlugin.JAR[] jars = jEdit.getPluginJARs();
 			for(int i = 0; i < jars.length; i++)
 			{
 				String path = jars[i].getPath();
@@ -196,11 +144,11 @@ class PluginList
 				{
 					installed = path;
 
-					EditPlugin plugin = jars[i].getPlugin();
-					if(plugin != null)
+					EditPlugin[] plugins = jars[i].getPlugins();
+					if(plugins.length >= 1)
 					{
 						installedVersion = jEdit.getProperty(
-							"plugin." + plugin.getClassName()
+							"plugin." + plugins[0].getClassName()
 							+ ".version");
 					}
 					break;
@@ -217,45 +165,7 @@ class PluginList
 					installed = path;
 					break;
 				}
-			} */
-		}
-
-		String getInstalledVersion()
-		{
-			PluginJAR[] jars = jEdit.getPluginJARs();
-			for(int i = 0; i < jars.length; i++)
-			{
-				String path = jars[i].getPath();
-
-				if(MiscUtilities.getFileName(path).equals(jar))
-				{
-					EditPlugin plugin = jars[i].getPlugin();
-					if(plugin != null)
-					{
-						return jEdit.getProperty(
-							"plugin." + plugin.getClassName()
-							+ ".version");
-					}
-					else
-						return null;
-				}
 			}
-
-			return null;
-		}
-
-		String getInstalledPath()
-		{
-			PluginJAR[] jars = jEdit.getPluginJARs();
-			for(int i = 0; i < jars.length; i++)
-			{
-				String path = jars[i].getPath();
-
-				if(MiscUtilities.getFileName(path).equals(jar))
-					return path;
-			}
-
-			return null;
 		}
 
 		/**
@@ -276,24 +186,20 @@ class PluginList
 		boolean canBeInstalled()
 		{
 			Branch branch = getCompatibleBranch();
-			return branch != null && !branch.obsolete
-				&& branch.canSatisfyDependencies();
+			return branch != null && !branch.obsolete;
 		}
 
 		void install(Roster roster, String installDirectory, boolean downloadSource)
 		{
-			String installed = getInstalledPath();
+			if(installed != null)
+				roster.addOperation(new Roster.Remove(installed));
 
 			Branch branch = getCompatibleBranch();
 			if(branch.obsolete)
-			{
-				if(installed != null)
-					roster.addRemove(installed);
 				return;
-			}
 
-			//branch.satisfyDependencies(roster,installDirectory,
-			//	downloadSource);
+			branch.satisfyDependencies(roster,installDirectory,
+				downloadSource);
 
 			if(installed != null)
 			{
@@ -301,11 +207,9 @@ class PluginList
 					installed);
 			}
 
-			roster.addInstall(
-				installed,
-				(downloadSource ? branch.downloadSource : branch.download),
-				installDirectory,
-				(downloadSource ? branch.downloadSourceSize : branch.downloadSize));
+			roster.addOperation(new Roster.Install((downloadSource
+				? branch.downloadSource : branch.download),
+				installDirectory));
 
 		}
 
@@ -313,16 +217,13 @@ class PluginList
 		{
 			return name;
 		}
-	} //}}}
+	}
 
-	//{{{ Branch class
 	static class Branch
 	{
 		String version;
 		String date;
-		int downloadSize;
 		String download;
-		int downloadSourceSize;
 		String downloadSource;
 		boolean obsolete;
 		Vector deps = new Vector();
@@ -352,11 +253,10 @@ class PluginList
 		public String toString()
 		{
 			return "[version=" + version + ",download=" + download
-				+ ",obsolete=" + obsolete + ",deps=" + deps + ']';
+				+ ",obsolete=" + obsolete + ",deps=" + deps + "]";
 		}
-	} //}}}
+	}
 
-	//{{{ Dependency class
 	static class Dependency
 	{
 		String what;
@@ -380,14 +280,15 @@ class PluginList
 			{
 				for(int i = 0; i < plugin.branches.size(); i++)
 				{
-					String installedVersion = plugin.getInstalledVersion();
-					if(installedVersion != null
+					Branch branch = (Branch)plugin.branches
+						.elementAt(i);
+					if(plugin.installedVersion != null
 						&&
-					(from == null || StandardUtilities.compareStrings(
-						installedVersion,from,false) >= 0)
+					(from == null || MiscUtilities.compareVersions(
+						plugin.installedVersion,from) >= 0)
 						&&
-						(to == null || StandardUtilities.compareStrings(
-						      installedVersion,to,false) <= 0))
+					   (to == null || MiscUtilities.compareVersions(
+					   	plugin.installedVersion,to) <= 0))
 					{
 						return true;
 					}
@@ -399,11 +300,11 @@ class PluginList
 			{
 				String javaVersion = System.getProperty("java.version").substring(0,3);
 
-				if((from == null || StandardUtilities.compareStrings(
-					javaVersion,from,false) >= 0)
+				if((from == null || MiscUtilities.compareVersions(
+					javaVersion,from) >= 0)
 					&&
-					(to == null || StandardUtilities.compareStrings(
-						     javaVersion,to,false) <= 0))
+				   (to == null || MiscUtilities.compareVersions(
+				   	javaVersion,to) <= 0))
 					return true;
 				else
 					return false;
@@ -412,11 +313,11 @@ class PluginList
 			{
 				String build = jEdit.getBuild();
 
-				if((from == null || StandardUtilities.compareStrings(
-					build,from,false) >= 0)
+				if((from == null || MiscUtilities.compareVersions(
+					build,from) >= 0)
 					&&
-					(to == null || StandardUtilities.compareStrings(
-						     build,to,false) <= 0))
+				   (to == null || MiscUtilities.compareVersions(
+				   	build,to) <= 0))
 					return true;
 				else
 					return false;
@@ -430,14 +331,9 @@ class PluginList
 
 		boolean canSatisfy()
 		{
-			if(isSatisfied())
-				return true;
-			else if(what.equals("plugin"))
-			{
-				return plugin.canBeInstalled();
-			}
-			else
-				return false;
+			// new plugins can always be downloaded (assuming Mike
+			// maintains plugin central properly)
+			return (what.equals("plugin") || isSatisfied());
 		}
 
 		void satisfy(Roster roster, String installDirectory,
@@ -445,21 +341,20 @@ class PluginList
 		{
 			if(what.equals("plugin"))
 			{
-				String installedVersion = plugin.getInstalledVersion();
 				for(int i = 0; i < plugin.branches.size(); i++)
 				{
 					Branch branch = (Branch)plugin.branches
 						.elementAt(i);
-					if((installedVersion == null
+					if((plugin.installedVersion == null
 						||
-					StandardUtilities.compareStrings(
-						installedVersion,branch.version,false) < 0)
+					MiscUtilities.compareVersions(
+						plugin.installedVersion,branch.version) < 0)
 						&&
-					(from == null || StandardUtilities.compareStrings(
-						branch.version,from,false) >= 0)
+					(from == null || MiscUtilities.compareVersions(
+						branch.version,from) >= 0)
 						&&
-						(to == null || StandardUtilities.compareStrings(
-						      branch.version,to,false) <= 0))
+					   (to == null || MiscUtilities.compareVersions(
+					   	branch.version,to) <= 0))
 					{
 						plugin.install(roster,installDirectory,
 							downloadSource);
@@ -472,7 +367,7 @@ class PluginList
 		public String toString()
 		{
 			return "[what=" + what + ",from=" + from
-				+ ",to=" + to + ",plugin=" + plugin + ']';
+				+ ",to=" + to + ",plugin=" + plugin + "]";
 		}
-	} //}}}
+	}
 }

@@ -1,13 +1,8 @@
 /*
  * Display_shortcuts.bsh - a BeanShell macro script for the
  * jEdit text editor - displays all shortcut key assignments
- * Copyright (C) 2003 Russell Inman
- * email: RInman@csustan.edu
- *
- * Code based on Display_Shortcuts.bsh, 1.3
  * Copyright (C) 2001 John Gellene
  * email: jgellene@nyc.rr.com
- * http://community.jedit.org
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -24,15 +19,22 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  *
  *
- * Display_Shortcuts.bsh, v1.3.1 2003-11-13
+ * $Id$
  *
- *
- * requires jEdit3.1pre5
+ * requires JDK 1.2, jEdit3.1pre5
  *
  * Notes on use:
  *
  * This macro will display a sorted list of all keyboard shortcuts
- * in a dialog.
+ * in a dialog.  "Actions" or built-in commands are listed by their names;
+ * macros are listed by their path name (relative to the default macro
+ * directory in which they are located).
+ *
+ * The script defines two global variables intended to allow user
+ * customization of the macro's behavior.  By changing the global variable
+ * USE_MACRO_LABEL to false, the user can avoid listing macros with the prefix
+ * label "Macros: ".  The other global variable is PUT_MACROS_AT_END, which
+ * when set as true keeps macros separate from commands in the table display.
  *
  * Pressing a letter key will cause the table to scroll to the first row
  * with a label beginning with the letter (or the imeediately preceding row if
@@ -47,25 +49,28 @@
  * routine.  Sorting by keyname would require a second custom sorting routine.
  * There is also a hack in the code creating the table.
  *
- * Checked for jEdit 4.2pre6 API
  */
 
 import javax.swing.table.*;
 
 /*
- * method for creating vectors of row data describing shortcuts.
+ * methods for creating vectors of row data describing shortcuts for commands
+ * and macros
  */
 
-void makeShortcutsVector(Vector p_v)
+void addRowsForCommands(Vector v)
 {
-	String[] actionNames = jEdit.getActionNames();
-	for(int i = 0; i < actionNames.length; i++)
+	// from jEdit's CommandShortcutsOptionPane.createBindings()
+	EditAction[] actions = jEdit.getActions();
+	for(int i = 0; i < actions.length; i++)
 	{
-		EditAction action = jEdit.getAction(actionNames[i]);
+		EditAction action = actions[i];
 		String name = action.getName();
-		String label = action.getLabel();
-	if(label == null)
+		String label = jEdit.getProperty(name + ".label");
+		if(label == null)
+		{
 			label = name;
+		}
 		else label = GUIUtilities.prettifyMenuLabel(label);
 		String shortcut1 = jEdit.getProperty(name + ".shortcut");
 		if(shortcut1 == null)
@@ -73,11 +78,34 @@ void makeShortcutsVector(Vector p_v)
 		String shortcut2 = jEdit.getProperty(name + ".shortcut2");
 		if(shortcut2 == null)
 			shortcut2 = "";
-		if(shortcut1.length() != 0 || shortcut2.length() != 0)
+		if(shortcut1.length() != 0 	|| shortcut2.length() != 0)
 		{
-			p_v.addElement(makeRow(label,shortcut1,shortcut2));
+			v.addElement(makeRow(label,shortcut1,shortcut2));
 		}
 	}
+}
+
+void addRowsForMacros(Vector v)
+{
+	// from jEdit's MacroShortcutsOptionPane.createBindings()
+	Vector macroList = Macros.getMacroList();
+	for(i = 0; i < macroList.size(); i++)
+	{
+		name = macroList.elementAt(i).toString();
+		String shortcut1 = jEdit.getProperty(name + ".shortcut");
+		if(shortcut1 == null)
+			shortcut1 = "";
+		String shortcut2 = jEdit.getProperty(name + ".shortcut2");
+		if(shortcut2 == null)
+			shortcut2 = "";
+		if(USE_MACRO_LABEL)
+			name = "Macro: " + name;
+		if(shortcut1.length() != 0	|| shortcut2.length() != 0)
+		{
+			v.addElement(makeRow(name, shortcut1, shortcut2));
+		}
+	}
+	return v;
 }
 
 /*
@@ -101,9 +129,9 @@ void writeTableToNewBuffer(Vector v)
 	jEdit.newFile(view);
 	textArea.setSelectedText("jEdit Keyboard Shortcut Table\n\n");
 	headings = makeRow("Name", "Shortcut - 1", "Shortcut - 2");
-	writeLine(headings);
+	writeLine( headings);
 	textArea.setSelectedText("\n");
-	for(int i = 0; i < v.size(); ++i)
+	for( int i = 0; i < v.size(); ++i)
 	{
 		writeLine((Vector)v.elementAt(i));
 	}
@@ -138,14 +166,17 @@ void writeLine(Vector row)
 
 /*
  *  main routine
+ *
  */
-void showShortcuts(View view)
+void showShortcuts()
 {
-	this.view = view;
-
-	Vector v = new Vector();
-	makeShortcutsVector(v);
+	v = new Vector(jEdit.getActions().length + Macros.getMacroList().size());
+	addRowsForCommands(v);
+	if(!PUT_MACROS_AT_END)
+		addRowsForMacros(v);
 	MiscUtilities.quicksort(v, new MiscUtilities.StringICaseCompare());
+	if(PUT_MACROS_AT_END)
+		addRowsForMacros(v);
 
 	table = new JTable(v, makeRow( "Name", "Shortcut-1", "Shortcut-2"));
 	table.getColumnModel().getColumn(0).setPreferredWidth(200);
@@ -241,8 +272,7 @@ void showShortcuts(View view)
 	{
 		ch = Character.toUpperCase(ch);
 		int row = 0;
-		int fix_err = ch > 'L' ? data_midpoint : 0;
-		for(int i = fix_err; i < v.size(); ++i)
+		for(int i = (ch > 'L' ? data_midpoint : 0); i < v.size(); ++i)
 		{
 			String name = ((Vector)v.elementAt(i)).elementAt(0);
 			char ch_test = Character.toUpperCase(name.charAt(0));
@@ -257,7 +287,8 @@ void showShortcuts(View view)
 	}
 	/* This line caches the row that starts the second half of the
 	 * alphabet to speed up searches.  'M' was chosen as the midpoint
-	 * to speed up searches.
+	 * to speed up searches for macros if they are included in the
+	 * sorted list.
 	 */
 	data_midpoint = findFirstItem('M');
 	dialog.pack();
@@ -266,42 +297,12 @@ void showShortcuts(View view)
 	dialog.show();
 }
 
-showShortcuts(view);
-
 /*
-	Macro index data (in DocBook format)
+ * main routine: defines global variables
+ */
 
-<listitem>
-    <para><filename>Display_Shortcuts.bsh</filename></para>
-    <abstract><para>
-        Displays a sorted list of the keyboard shortcuts currently in effect.
-    </para></abstract>
-    <para>
-        The macro provides a combined read-only view of command, macro
-        and plugin shortcuts. Pressing a letter key will
-        scroll the table to the first entry beginning with that letter.
-        A further option is provided to write the shortcut assignments in a
-        text buffer for printing as a reference. Notes in the source code
-        listing point out some display options that are configured by
-        modifying global variables.
-    </para>
-</listitem>
+USE_MACRO_LABEL = true;
+PUT_MACROS_AT_END = false;
+Vector v = null;
 
-*/
-
-/*
-	Changes from v1.3
-	- Since makeShortcutsVector() had no return statement, the return type was
-	  changed to void.
-	- Removed deprecated jEdit.getEditActions() call from makeShortcutsVector
-	- The original makeShortcutsVector method referenced a variable v, 
-	  presumably from showShortcuts(), which was outside of its scope.  
-	  I don't know if some new scoping rule in BeanShell broke this or not.
-	  At any rate, the method has been updated so that it takes a 
-	  Vector as a parameter.
-	- Added an explicit declaration for Vector v to showShortcuts in order to
-	  pass it to makeShortcutsVector
-*/
-
-// end Display_Shortcuts.bsh
-
+showShortcuts();

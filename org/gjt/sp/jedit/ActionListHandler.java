@@ -1,8 +1,5 @@
 /*
  * ActionListHandler.java - XML handler for action files
- * :tabSize=8:indentSize=8:noTabs=false:
- * :folding=explicit:collapseFolds=1:
- *
  * Copyright (C) 2000, 2001 Slava Pestov
  * Portions copyright (C) 1999 mike dillon
  *
@@ -23,37 +20,40 @@
 
 package org.gjt.sp.jedit;
 
-//{{{ Imports
+import com.microstar.xml.*;
 import java.io.*;
 import java.util.Stack;
-
-import org.xml.sax.Attributes;
-import org.xml.sax.InputSource;
-import org.xml.sax.helpers.DefaultHandler;
-
 import org.gjt.sp.util.Log;
-import org.gjt.sp.util.XMLUtilities;
-//}}}
 
-class ActionListHandler extends DefaultHandler
+class ActionListHandler extends HandlerBase
 {
-	//{{{ ActionListHandler constructor
-	ActionListHandler(String path, ActionSet actionSet)
+	ActionListHandler(String path, boolean plugin)
 	{
 		this.path = path;
-		this.actionSet = actionSet;
+		this.plugin = plugin;
 		stateStack = new Stack();
-		code = new StringBuffer();
-		isSelected = new StringBuffer();
-	} //}}}
+	}
 
-	//{{{ resolveEntity() method
-	public InputSource resolveEntity(String publicId, String systemId)
+	public Object resolveEntity(String publicId, String systemId)
 	{
-		return XMLUtilities.findEntity(systemId, "actions.dtd", getClass());
-	} //}}}
+		if("actions.dtd".equals(systemId))
+		{
+			try
+			{
+				return new BufferedReader(new InputStreamReader(
+					getClass().getResourceAsStream("actions.dtd")));
+			}
+			catch(Exception e)
+			{
+				Log.log(Log.ERROR,this,"Error while opening"
+					+ " actions.dtd:");
+				Log.log(Log.ERROR,this,e);
+			}
+		}
 
-	//{{{ attribute() method
+		return null;
+	}
+
 	public void attribute(String aname, String value, boolean isSpecified)
 	{
 		aname = (aname == null) ? null : aname.intern();
@@ -65,58 +65,56 @@ class ActionListHandler extends DefaultHandler
 			noRepeat = (value == "TRUE");
 		else if(aname == "NO_RECORD")
 			noRecord = (value == "TRUE");
-		else if(aname == "NO_REMEMBER_LAST")
-			noRememberLast = (value == "TRUE");
-	} //}}}
+	}
 
-	//{{{ characters() method
-	public void characters(char[] c, int off, int len)
+	public void doctypeDecl(String name, String publicId,
+		String systemId) throws Exception
+	{
+		if("ACTIONS".equals(name))
+			return;
+
+		Log.log(Log.ERROR,this,path + ": DOCTYPE must be ACTIONS");
+	}
+
+	public void charData(char[] c, int off, int len)
 	{
 		String tag = peekElement();
-		if (tag.equals("CODE"))
-		{
-			code.append(c, off, len);
-		}
-		else if (tag.equals("IS_SELECTED"))
-		{
-			isSelected.append(c, off, len);
-		}
-	} //}}}
+		String text = new String(c, off, len);
 
-	//{{{ startElement() method
-	public void startElement(String uri, String localName,
-				 String qName, Attributes attrs)
+		if (tag == "CODE")
+		{
+			code = text;
+		}
+		else if (tag == "IS_SELECTED")
+		{
+			isSelected = text;
+		}
+	}
+
+	public void startElement(String tag)
 	{
-		String tag = pushElement(qName);
+		tag = pushElement(tag);
 
-		if (tag.equals("ACTION"))
+		if (tag == "ACTION")
 		{
-			actionName = attrs.getValue("NAME");
-			noRepeat = "TRUE".equals(attrs.getValue("NO_REPEAT"));
-			noRecord = "TRUE".equals(attrs.getValue("NO_RECORD"));
-			noRememberLast = "TRUE".equals(attrs.getValue("NO_REMEMBER_LAST"));
-			code.setLength(0);
-			isSelected.setLength(0);
+			code = null;
+			isSelected = null;
 		}
-	} //}}}
+	}
 
-	//{{{ endElement() method
-	public void endElement(String uri, String localName, String qName)
+	public void endElement(String name)
 	{
+		if(name == null)
+			return;
+
 		String tag = peekElement();
 
-		if (qName.equals(tag))
+		if(name.equals(tag))
 		{
-			if (tag.equals("ACTION"))
+			if(tag == "ACTION")
 			{
-				String selected = (isSelected.length() > 0) ?
-					isSelected.toString() : null;
-				actionSet.addAction(new BeanShellAction(actionName,
-					code.toString(),selected,
-					noRepeat,noRecord,noRememberLast));
-				noRepeat = noRecord = noRememberLast = false;
-				code.setLength(0);
-				isSelected.setLength(0);
+				jEdit.addAction(new BeanShellAction(actionName,
+					plugin,code,isSelected,noRepeat,noRecord));
 			}
 
 			popElement();
@@ -126,9 +124,8 @@ class ActionListHandler extends DefaultHandler
 			// can't happen
 			throw new InternalError();
 		}
-	} //}}}
+	}
 
-	//{{{ startDocument() method
 	public void startDocument()
 	{
 		try
@@ -139,26 +136,22 @@ class ActionListHandler extends DefaultHandler
 		{
 			e.printStackTrace();
 		}
-	} //}}}
+	}
+	// end HandlerBase implementation
 
-	//{{{ Private members
-
-	//{{{ Instance variables
+	// private members
 	private String path;
-	private ActionSet actionSet;
+	private boolean plugin;
 
 	private String actionName;
-	private StringBuffer code;
-	private StringBuffer isSelected;
+	private String code;
+	private String isSelected;
 
 	private boolean noRepeat;
 	private boolean noRecord;
-	private boolean noRememberLast;
 
 	private Stack stateStack;
-	//}}}
 
-	//{{{ pushElement() method
 	private String pushElement(String name)
 	{
 		name = (name == null) ? null : name.intern();
@@ -166,20 +159,15 @@ class ActionListHandler extends DefaultHandler
 		stateStack.push(name);
 
 		return name;
-	} //}}}
+	}
 
-	//{{{ peekElement() method
 	private String peekElement()
 	{
 		return (String) stateStack.peek();
-	} //}}}
+	}
 
-	//{{{ popElement() method
 	private String popElement()
 	{
 		return (String) stateStack.pop();
-	} //}}}
-
-	//}}}
-
+	}
 }
